@@ -1,0 +1,32 @@
+<div style="display: none;">
+  <em id="sidebar-total-count" hx-swap-oob="true">{{ counts.all }}</em>
+  <small id="count-important" hx-swap-oob="true">{{ counts.important }}</small>
+  <small id="count-low" hx-swap-oob="true">{{ counts.low_priority }}</small>
+  <small id="count-all" hx-swap-oob="true">{{ counts.all }}</small>
+</div>
+
+{% for item in emails %}
+<button class="item {{ 'vi' if item.label == 'very_important' else '' }} {{ 'on' if selected_email and selected_email.id == item.id else '' }} {{ 'unread' if item.unread else 'read' }}"
+        data-id="{{ item.id }}"
+        id="item-{{ item.id }}"
+        hx-get="/emails/{{ item.id }}"
+        hx-target="#reader"
+        hx-swap="innerHTML"
+        onclick="selectFeedItem(this)">
+  <div class="t">
+    <span class="sender-wrap">
+      <span class="sname">{{ item.sender_name }}</span>
+    </span>
+    <span class="meta-right">
+      {% if item.label == 'very_important' %}
+        <span class="urgent-tag">Urgent</span>
+      {% endif %}
+      <span class="d">{{ item.date_short }}</span>
+    </span>
+  </div>
+  <div class="s">{{ item.subject }}</div>
+  <div class="p">{{ item.snippet }}</div>
+</button>
+{% else %}
+<div class="none">{% if unread_only %}No unread emails here.{% else %}No emails here.{% endif %}</div>
+{% endfor %}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="32 32 448 448" width="512" height="512">
+  <defs>
+    <linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14403f"/>
+      <stop offset="1" stop-color="#081b1d"/>
+    </linearGradient>
+    <clipPath id="logo-c">
+      <rect x="120" y="166" width="272" height="192" rx="34"/>
+    </clipPath>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#logo-g)"/>
+  <rect x="33.5" y="33.5" width="445" height="445" rx="110.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="3"/>
+  <g clip-path="url(#logo-c)">
+    <rect x="120" y="166" width="272" height="192" fill="#2a8a83"/>
+    <polygon points="120,166 120,358 256,264" fill="#35a095"/>
+    <polygon points="392,166 392,358 256,264" fill="#1d6e69"/>
+    <polygon points="120,358 392,358 256,264" fill="#14504d"/>
+    <polygon points="120,166 392,166 256,264" fill="#86dac9"/>
+  </g>
+</svg>

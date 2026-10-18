@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="app">
+  <!-- Column 1: Navigation Sidebar -->
+  {% include "partials/sidebar.html" %}
+
+  <!-- Column 2: Middle Email List Feed -->
+  <section class="pane">
+    <form id="filter-form" style="display:none;">
+      <input type="hidden" name="tab" id="filter-tab" value="{{ current_tab }}">
+      <input type="hidden" name="q" id="filter-query" value="{{ search_query }}">
+      <input type="hidden" name="unread" id="filter-unread" value="{{ '1' if unread_only else '0' }}">
+      <input type="hidden" name="account" id="filter-account" value="{{ selected_account or '' }}">
+    </form>
+
+    <div class="lhead">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input id="q" placeholder="Search emails…" value="{{ search_query }}"
+               hx-get="/emails"
+               hx-trigger="keyup changed delay:200ms"
+               hx-target="#list"
+               hx-include="#filter-form"
+               oninput="document.getElementById('filter-query').value = this.value;" />
+      </label>
+
+      <div class="row">
+        <div class="seg" id="tabs">
+          <!-- 1. Important (Default - includes very_important distinguishable inside) -->
+          <button class="{{ 'on' if current_tab == 'important' else '' }}"
+                  data-t="important"
+                  hx-get="/emails"
+                  hx-target="#list"
+                  hx-include="#filter-form"
+                  onclick="setFilterTab('important', this)">
+            Important <small id="count-important">{{ counts.important }}</small>
+          </button>
+
+          <!-- 2. Low Priority -->
+          <button class="{{ 'on' if current_tab == 'low_priority' else '' }}"
+                  data-t="low_priority"
+                  hx-get="/emails"
+                  hx-target="#list"
+                  hx-include="#filter-form"
+                  onclick="setFilterTab('low_priority', this)">
+            Low Priority <small id="count-low">{{ counts.low_priority }}</small>
+          </button>
+
+          <!-- 3. All -->
+          <button class="{{ 'on' if current_tab == 'all' else '' }}"
+                  data-t="all"
+                  hx-get="/emails"
+                  hx-target="#list"
+                  hx-include="#filter-form"
+                  onclick="setFilterTab('all', this)">
+            All <small id="count-all">{{ counts.all }}</small>
+          </button>
+        </div>
+
+        <button class="sw" id="unread" type="button" onclick="toggleUnreadFilter()">
+          <span>Unread</span>
+          <i class="tg {{ 'on' if unread_only else '' }}" id="unread-tg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable Email Feed with 15s auto-polling -->
+    <div class="list"
+         id="list"
+         hx-get="/emails"
+         hx-trigger="every 15s"
+         hx-include="#filter-form"
+         hx-swap="innerHTML">
+      {% include "partials/email_feed.html" %}
+    </div>
+  </section>
+
+  <!-- Column 3: Right In-App Reader -->
+  <main class="pane" id="reader">
+    {% with email = selected_email %}
+      {% include "partials/email_view.html" %}
+    {% endwith %}
+  </main>
+</div>
+
+<!-- Settings Modal -->
+{% include "partials/settings_modal.html" %}
+
+<!-- Toast HUD -->
+{% include "partials/toast.html" %}
+{% endblock %}

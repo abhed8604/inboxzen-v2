@@ -1,0 +1,92 @@
+<aside class="pane">
+  <div class="brand">
+    <div class="logo">
+      <svg viewBox="32 32 448 448" width="36" height="36">
+        <defs>
+          <linearGradient id="sb-logo-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#14403f"/>
+            <stop offset="1" stop-color="#081b1d"/>
+          </linearGradient>
+          <clipPath id="sb-logo-c">
+            <rect x="120" y="166" width="272" height="192" rx="34"/>
+          </clipPath>
+        </defs>
+        <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#sb-logo-g)"/>
+        <rect x="33.5" y="33.5" width="445" height="445" rx="110.5" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="3"/>
+        <g clip-path="url(#sb-logo-c)">
+          <rect x="120" y="166" width="272" height="192" fill="#2a8a83"/>
+          <polygon points="120,166 120,358 256,264" fill="#35a095"/>
+          <polygon points="392,166 392,358 256,264" fill="#1d6e69"/>
+          <polygon points="120,358 392,358 256,264" fill="#14504d"/>
+          <polygon points="120,166 392,166 256,264" fill="#86dac9"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <b>InboxZen</b>
+      <span>One inbox. Zero noise.</span>
+    </div>
+  </div>
+
+  <nav>
+    <button class="nav {{ 'on' if current_tab == 'important' else '' }}" id="nav-inbox-btn" onclick="selectNavInbox()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 13h5l1.5 3h5L16 13h5"/>
+        <path d="M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>
+      </svg>
+      Inbox
+      <em id="sidebar-total-count">{{ counts.all }}</em>
+    </button>
+
+    <button class="nav act" hx-post="/sync" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); showToast('Syncing new Gmail messages...')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 11a8 8 0 0 0-14.5-4L4 9"/>
+        <path d="M4 4v5h5"/>
+        <path d="M4 13a8 8 0 0 0 14.5 4L20 15"/>
+        <path d="M20 20v-5h-5"/>
+      </svg>
+      Sync mails
+    </button>
+
+    <button class="nav act" hx-post="/rescan" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); showToast('Re-evaluating inbox with vllm-d3-lite...')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
+        <path d="M3 3v5h5"/>
+      </svg>
+      Rescan
+    </button>
+
+    <button class="nav" onclick="openSettingsModal('rules')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/>
+        <circle cx="15" cy="7" r="2"/>
+        <circle cx="9" cy="17" r="2"/>
+      </svg>
+      Settings
+    </button>
+  </nav>
+
+  <div class="acct">
+    <div class="acct-head">
+      <span class="cap">Accounts</span>
+    </div>
+    <div class="acct-list" id="sidebar-acct-list">
+      {% for acc in accounts %}
+      <div class="chip acct-chip {{ 'active' if selected_account == acc.account else '' }}" 
+           data-account="{{ acc.account }}"
+           onclick="toggleAccountFilter('{{ acc.account }}', this)"
+           title="Filter emails received by {{ acc.account }}">
+        <i class="dot"></i>
+        <span class="acct-text">{{ acc.account }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="engine-indicator" onclick="openSettingsModal('model')" title="Engine status: {{ 'Online in VRAM' if server_ok else 'Paused' }}">
+      <i class="dot" id="vram-dot" style="{{ 'background: var(--ok);' if server_ok else 'background: var(--ink3);' }}"></i>
+      <span class="engine-name" id="vram-footer-label">vllm-d3-lite</span>
+    </div>
+  </div>
+</aside>
