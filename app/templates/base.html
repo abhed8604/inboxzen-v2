@@ -1,8 +1,23 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="{{ current_theme or 'dark' }}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem("iz-theme");
+        if (!saved) {
+          var match = document.cookie.match(/(^|;)\s*iz-theme=([^;]+)/);
+          if (match) saved = match[2];
+        }
+        if (saved) {
+          document.documentElement.dataset.theme = saved;
+          document.documentElement.setAttribute("data-theme", saved);
+        }
+      } catch(e) {}
+    })();
+  </script>
   <title>{% block title %}InboxZen — Autonomous Email Triage{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="/static/logo.svg" />
 

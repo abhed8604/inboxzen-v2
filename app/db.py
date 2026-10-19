@@ -34,7 +34,7 @@ def init_db():
                 confidence REAL,
                 prompt_hash TEXT,    -- Hash of the Markdown prompt used to classify
                 unread INTEGER DEFAULT 1,
-                account TEXT DEFAULT 'abhed8604@gmail.com'
+                account TEXT DEFAULT ''
             );
 
             CREATE INDEX IF NOT EXISTS idx_emails_label_ts 
@@ -58,7 +58,7 @@ def init_db():
             pass
 
         try:
-            conn.execute("ALTER TABLE emails ADD COLUMN account TEXT DEFAULT 'abhed8604@gmail.com';")
+            conn.execute("ALTER TABLE emails ADD COLUMN account TEXT DEFAULT '';")
         except sqlite3.OperationalError:
             pass
 
@@ -98,7 +98,7 @@ def format_email_dict(row: dict) -> dict:
         item["label_display"] = "Queued"
 
     item["unread"] = bool(item.get("unread", 0))
-    item["account"] = item.get("account") or "abhed8604@gmail.com"
+    item["account"] = item.get("account") or ""
 
     # Compute short date and full date
     ts = item.get("timestamp") or 0
@@ -132,17 +132,15 @@ def get_accounts() -> list[dict]:
     with get_db() as conn:
         rows = conn.execute("""
             SELECT 
-                COALESCE(account, 'abhed8604@gmail.com') as account,
+                account,
                 COUNT(*) as total,
                 COALESCE(SUM(unread = 1), 0) as unread_count
             FROM emails
-            GROUP BY COALESCE(account, 'abhed8604@gmail.com')
+            WHERE account IS NOT NULL AND account != ''
+            GROUP BY account
             ORDER BY total DESC
         """).fetchall()
-        accounts = [dict(r) for r in rows]
-        if not accounts:
-            return [{"account": "abhed8604@gmail.com", "total": 0, "unread_count": 0}]
-        return accounts
+        return [dict(r) for r in rows]
 
 def fetch_emails(
     tab: str = "important",

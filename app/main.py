@@ -59,6 +59,7 @@ async def index(
     first_email = emails[0] if emails else None
     accounts = get_accounts()
     has_credentials = CREDENTIALS_FILE.exists()
+    current_theme = request.cookies.get("iz-theme", "dark")
 
     return templates.TemplateResponse(request, "index.html", {
         "emails": emails,
@@ -72,6 +73,7 @@ async def index(
         "has_credentials": has_credentials,
         "triage_prompt": get_triage_prompt(),
         "server_ok": server_ok,
+        "current_theme": current_theme,
     })
 
 @app.get("/emails", response_class=HTMLResponse)
@@ -84,11 +86,13 @@ async def list_emails_partial(
 ):
     unread_only = bool(unread)
     emails, counts = fetch_emails(tab=tab, query=q, unread_only=unread_only, account=account)
+    first_email = emails[0] if emails else None
     return templates.TemplateResponse(request, "partials/email_feed.html", {
         "emails": emails,
         "counts": counts,
         "current_tab": tab,
         "unread_only": unread_only,
+        "selected_email": first_email,
         "selected_account": account,
     })
 
@@ -122,11 +126,13 @@ async def manual_sync(
 ):
     await run_sync_and_classify(request.app.state.http_client, fetch_gmail=True)
     emails, counts = fetch_emails(tab=tab, query=q, unread_only=bool(unread), account=account)
+    first_email = emails[0] if emails else None
     return templates.TemplateResponse(request, "partials/email_feed.html", {
         "emails": emails,
         "counts": counts,
         "current_tab": tab,
         "unread_only": bool(unread),
+        "selected_email": first_email,
         "selected_account": account,
     })
 
@@ -140,11 +146,13 @@ async def rescan_inbox(
 ):
     await run_sync_and_classify(request.app.state.http_client, fetch_gmail=False)
     emails, counts = fetch_emails(tab=tab, query=q, unread_only=bool(unread), account=account)
+    first_email = emails[0] if emails else None
     return templates.TemplateResponse(request, "partials/email_feed.html", {
         "emails": emails,
         "counts": counts,
         "current_tab": tab,
         "unread_only": bool(unread),
+        "selected_email": first_email,
         "selected_account": account,
     })
 

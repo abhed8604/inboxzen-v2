@@ -29,7 +29,7 @@
   </div>
 
   <nav>
-    <button class="nav {{ 'on' if current_tab == 'important' else '' }}" id="nav-inbox-btn" onclick="selectNavInbox()">
+    <button class="nav {{ 'on' if current_tab in ['important', 'low_priority', 'all'] else '' }}" id="nav-inbox-btn" onclick="selectNavInbox()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 13h5l1.5 3h5L16 13h5"/>
         <path d="M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>
@@ -72,13 +72,15 @@
     </div>
     <div class="acct-list" id="sidebar-acct-list">
       {% for acc in accounts %}
-      <div class="chip acct-chip {{ 'active' if selected_account == acc.account else '' }}" 
+      <div class="acct-chip {{ 'active' if selected_account == acc.account else '' }}" 
            data-account="{{ acc.account }}"
            onclick="toggleAccountFilter('{{ acc.account }}', this)"
            title="Filter emails received by {{ acc.account }}">
         <i class="dot"></i>
         <span class="acct-text">{{ acc.account }}</span>
       </div>
+      {% else %}
+      <div style="padding: 6px 12px; font-size: 11.5px; color: var(--ink3);">No accounts synced</div>
       {% endfor %}
     </div>
   </div>

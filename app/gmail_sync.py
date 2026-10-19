@@ -58,6 +58,12 @@ def fetch_new_messages_sync(max_results: int = 30, interactive: bool = True) -> 
         return 0
 
     try:
+        profile = service.users().getProfile(userId="me").execute()
+        user_account = profile.get("emailAddress", "")
+    except Exception:
+        user_account = ""
+
+    try:
         results = service.users().messages().list(
             userId="me", q="label:INBOX", maxResults=max_results
         ).execute()
@@ -108,7 +114,7 @@ def fetch_new_messages_sync(max_results: int = 30, interactive: bool = True) -> 
                     body_text,
                     body_html,
                     is_unread,
-                    "abhed8604@gmail.com",
+                    user_account,
                 )
             )
             inserted += 1

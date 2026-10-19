@@ -6,7 +6,8 @@ let toastTimeout = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   // Theme initialization
-  const savedTheme = localStorage.getItem("iz-theme") || localStorage.getItem("inboxzen-theme");
+  const cookieMatch = document.cookie.match(/(^|;)\s*iz-theme=([^;]+)/);
+  const savedTheme = localStorage.getItem("iz-theme") || (cookieMatch ? cookieMatch[2] : null);
   if (savedTheme) {
     setTheme(savedTheme, false);
   } else {
@@ -25,29 +26,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Auto-sync reader pane when feed list updates
   document.body.addEventListener("htmx:afterSwap", (evt) => {
-    if (evt.detail.target && evt.detail.target.id === "list") {
-      const activeItem = document.querySelector("#list .item.on");
-      if (!activeItem) {
-        const firstItem = document.querySelector("#list .item");
-        if (firstItem && firstItem.dataset.id) {
-          selectFeedItem(firstItem);
-          htmx.ajax("GET", `/emails/${firstItem.dataset.id}`, {
+    if (evt.detail.target && evt.detail.target.id === "list" && evt.detail.elt && evt.detail.elt.id === "list") {
+      const activeItem = document.querySelector("#list .item.on") || document.querySelector("#list .item");
+      if (activeItem && activeItem.dataset.id) {
+        if (!activeItem.classList.contains("on")) {
+          document.querySelectorAll("#list .item").forEach((el) => el.classList.remove("on"));
+          activeItem.classList.add("on");
+        }
+        const currentReaderId = document.getElementById("rhead")?.dataset.emailId;
+        if (currentReaderId !== activeItem.dataset.id) {
+          htmx.ajax("GET", `/emails/${activeItem.dataset.id}`, {
             target: "#reader",
             swap: "innerHTML",
           });
-        } else if (!firstItem) {
-          const reader = document.getElementById("reader");
-          if (reader) {
-            reader.innerHTML = `
-              <div class="none" style="padding: 100px 20px;">
-                <p style="font: 400 24px var(--serif); color: var(--ink2); margin-bottom: 6px;">No emails in this view</p>
-                <p style="font-size: 12.5px; color: var(--ink3);">Try switching account filter or tabs</p>
-              </div>`;
-          }
+        }
+      } else if (!activeItem) {
+        const reader = document.getElementById("reader");
+        if (reader) {
+          reader.innerHTML = `
+            <div class="none" style="padding: 100px 20px;">
+              <p style="font: 400 24px var(--serif); color: var(--ink2); margin-bottom: 6px;">No emails in this view</p>
+              <p style="font-size: 12.5px; color: var(--ink3);">Try switching account filter or tabs</p>
+            </div>`;
         }
       }
     } else if (evt.detail.target && evt.detail.target.id === "reader") {
       syncIframeTheme();
+    }
+  });
+
+  // Ensure active selector class remains stable after HTMX settle
+  document.body.addEventListener("htmx:afterSettle", (evt) => {
+    if (evt.detail.target && evt.detail.target.id === "list") {
+      const activeItem = document.querySelector("#list .item.on") || document.querySelector("#list .item");
+      if (activeItem && !activeItem.classList.contains("on")) {
+        activeItem.classList.add("on");
+      }
     }
   });
 });
@@ -78,7 +92,7 @@ function setFilterTab(tab, btnEl) {
 
   const navInbox = document.getElementById("nav-inbox-btn");
   if (navInbox) {
-    navInbox.classList.toggle("on", tab === "important");
+    navInbox.classList.add("on");
   }
 }
 
@@ -122,7 +136,7 @@ function toggleAccountFilter(accountEmail, chipEl) {
 
   const currentAccount = accountInput.value;
   // If user clicked the same account that is currently selected, toggle it off to show all
-  const targetAccount = (currentAccount === accountEmail || !accountEmail) ? "" : accountEmail;
+  const targetAccount = (currentAccount === accountEmail && accountEmail) ? "" : accountEmail;
   accountInput.value = targetAccount;
 
   // Update UI active states
@@ -200,6 +214,11 @@ function openSettingsModal(pane = "rules") {
   scrim.classList.add("on");
   switchSettingsPane(pane);
   hideAccountsInstructions();
+  const currentMode = document.documentElement.dataset.theme || "dark";
+  const lightBtn = document.getElementById("th-light");
+  const darkBtn = document.getElementById("th-dark");
+  if (lightBtn) lightBtn.classList.toggle("on", currentMode === "light");
+  if (darkBtn) darkBtn.classList.toggle("on", currentMode === "dark");
   const textarea = document.getElementById("triage-markdown-input");
   const gutter = document.getElementById("prompt-gutter");
   if (textarea) textarea.scrollTop = 0;
@@ -280,8 +299,10 @@ function hideAccountsInstructions() {
 /* Theme Switcher */
 function setTheme(mode, showNotification = true) {
   document.documentElement.dataset.theme = mode;
+  document.documentElement.setAttribute("data-theme", mode);
   try {
     localStorage.setItem("iz-theme", mode);
+    document.cookie = `iz-theme=${mode};path=/;max-age=31536000;SameSite=Lax`;
   } catch (e) {}
 
   const lightBtn = document.getElementById("th-light");

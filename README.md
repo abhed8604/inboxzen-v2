@@ -71,8 +71,7 @@ python run.py
 The app will start on `http://127.0.0.1:8000`.
 
 - On startup, `llama-server` automatically spins up on port `8081` with GPU layer offloading.
-- Initial seed emails are loaded automatically for instant local exploration if no Gmail accounts are synced yet.
-- Click **Sync mails** in the sidebar to authenticate and fetch real emails via Gmail OAuth.
+- Click **Sync mails** in the sidebar to authenticate and fetch emails via Gmail OAuth.
 
 ---
 
@@ -86,7 +85,6 @@ The app will start on `http://127.0.0.1:8000`.
 │   ├── db.py            # SQLite schema, queries, and count aggregations
 │   ├── gmail_sync.py    # Gmail API message fetcher and classifier pipeline
 │   ├── main.py          # FastAPI application routes and lifespan hooks
-│   ├── seed.py          # Demo inbox emails for testing and development
 │   ├── static/          # CSS, JavaScript controller, and SVG assets
 │   └── templates/       # Jinja2 templates and partials for HTMX swaps
 ├── credentials.json.example  # Sample OAuth desktop client structure

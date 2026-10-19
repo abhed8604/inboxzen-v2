@@ -15,6 +15,9 @@
         onclick="selectFeedItem(this)">
   <div class="t">
     <span class="sender-wrap">
+      {% if item.unread %}
+        <span class="udot" title="Unread"></span>
+      {% endif %}
       <span class="sname">{{ item.sender_name }}</span>
     </span>
     <span class="meta-right">

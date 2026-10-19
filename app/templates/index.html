@@ -68,13 +68,8 @@
       </div>
     </div>
 
-    <!-- Scrollable Email Feed with 15s auto-polling -->
-    <div class="list"
-         id="list"
-         hx-get="/emails"
-         hx-trigger="every 15s"
-         hx-include="#filter-form"
-         hx-swap="innerHTML">
+    <!-- Scrollable Email Feed -->
+    <div class="list" id="list">
       {% include "partials/email_feed.html" %}
     </div>
   </section>
