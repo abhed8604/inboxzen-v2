@@ -9,6 +9,9 @@ from app.config import APP_NAME, CREDENTIALS_FILE
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 KEYRING_USER = "google_oauth_token"
 
+def is_authenticated() -> bool:
+    return bool(keyring.get_password(APP_NAME, KEYRING_USER))
+
 def get_gmail_service(interactive: bool = True):
     creds = None
     stored_json = keyring.get_password(APP_NAME, KEYRING_USER)

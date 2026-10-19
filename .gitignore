@@ -59,6 +59,12 @@ bin/
 *.bin
 *.dll
 *.dylib
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar
+*.zip
+*.gz
 
 # Logs & Temporary Files
 *.log
@@ -70,8 +76,11 @@ temp/
 # IDE & Operating System
 .DS_Store
 Thumbs.db
+.directory
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace

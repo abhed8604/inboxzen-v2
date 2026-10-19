@@ -46,43 +46,34 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_emails_unread
             ON emails(unread);
 
+            CREATE INDEX IF NOT EXISTS idx_emails_account
+            ON emails(account);
+
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
         """)
 
-        try:
-            conn.execute("ALTER TABLE emails ADD COLUMN unread INTEGER DEFAULT 1;")
-        except sqlite3.OperationalError:
-            pass
-
-        try:
-            conn.execute("ALTER TABLE emails ADD COLUMN account TEXT DEFAULT '';")
-        except sqlite3.OperationalError:
-            pass
-
-        try:
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_emails_account ON emails(account);")
-        except sqlite3.OperationalError:
-            pass
-
         conn.execute(
             "INSERT OR IGNORE INTO settings (key, value) VALUES ('triage_prompt', ?)",
             (DEFAULT_TRIAGE_PROMPT,)
         )
+        conn.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('compute_device', 'cpu')"
+        )
 
-def get_triage_prompt() -> str:
+def get_setting(key: str, default: str = "") -> str:
     with get_db() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = 'triage_prompt'").fetchone()
-        return row["value"] if row else DEFAULT_TRIAGE_PROMPT
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else default
 
-def set_triage_prompt(prompt: str):
+def set_setting(key: str, value: str):
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO settings (key, value) VALUES ('triage_prompt', ?) "
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (prompt.strip(),)
+            (key, str(value))
         )
 
 def format_email_dict(row: dict) -> dict:
@@ -127,6 +118,11 @@ def format_email_dict(row: dict) -> dict:
 def mark_email_read(email_id: str):
     with get_db() as conn:
         conn.execute("UPDATE emails SET unread = 0 WHERE id = ?", (email_id,))
+
+def get_email_by_id(email_id: str) -> dict | None:
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM emails WHERE id = ?", (email_id,)).fetchone()
+        return format_email_dict(row) if row else None
 
 def get_accounts() -> list[dict]:
     with get_db() as conn:
@@ -177,27 +173,16 @@ def fetch_emails(
         rows = conn.execute(base_sql, params).fetchall()
         emails = [format_email_dict(r) for r in rows]
 
-        if account:
-            stats_sql = """
-                SELECT 
-                    COALESCE(SUM(label IN ('important', 'very_important')), 0),
-                    COALESCE(SUM(label = 'low_priority'), 0),
-                    COUNT(*),
-                    COALESCE(SUM(unread = 1), 0)
-                FROM emails
-                WHERE account = ?
-            """
-            stats = conn.execute(stats_sql, (account.strip(),)).fetchone()
-        else:
-            stats_sql = """
-                SELECT 
-                    COALESCE(SUM(label IN ('important', 'very_important')), 0),
-                    COALESCE(SUM(label = 'low_priority'), 0),
-                    COUNT(*),
-                    COALESCE(SUM(unread = 1), 0)
-                FROM emails
-            """
-            stats = conn.execute(stats_sql).fetchone()
+        stats_where = " WHERE account = ?" if account else ""
+        stats_params = (account.strip(),) if account else ()
+        stats = conn.execute(f"""
+            SELECT 
+                COALESCE(SUM(label IN ('important', 'very_important')), 0),
+                COALESCE(SUM(label = 'low_priority'), 0),
+                COUNT(*),
+                COALESCE(SUM(unread = 1), 0)
+            FROM emails{stats_where}
+        """, stats_params).fetchone()
 
         counts = {
             "important": stats[0],

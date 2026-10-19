@@ -184,14 +184,73 @@
       <div id="pane-model" class="settings-pane" style="display: none;">
         <h2>Active classifier</h2>
         <p class="sub">Local hardware and runtime configuration.</p>
+
+        <span class="cap" style="margin: 14px 0 8px; display: block;">Compute Device</span>
+        <div class="compute-options" style="margin-top: 8px;">
+          <!-- CPU Option -->
+          <div class="compute-card {{ 'selected' if compute_device == 'cpu' else '' }}" id="settings-card-cpu" onclick="switchComputeDevice('cpu')">
+            <div class="compute-radio"></div>
+            <div class="compute-info">
+              <div class="compute-header">
+                <span class="compute-title">CPU Only</span>
+                <span class="compute-badge ready">0 MB</span>
+              </div>
+              <p class="compute-desc">Standard multi-threaded processor inference.</p>
+            </div>
+          </div>
+
+          <!-- GPU Option -->
+          <div class="compute-card {{ 'selected' if compute_device == 'gpu' else '' }}" id="settings-card-gpu" onclick="switchComputeDevice('gpu')">
+            <div class="compute-radio"></div>
+            <div class="compute-info">
+              <div class="compute-header">
+                <span class="compute-title">NVIDIA GPU (CUDA)</span>
+                <span class="compute-badge {{ 'ready' if cuda_installed else 'download' }}" id="settings-gpu-badge">
+                  {{ 'Ready' if cuda_installed else '~850 MB download' }}
+                </span>
+              </div>
+              <p class="compute-desc">
+                {% if has_nvidia %}
+                Accelerates inference using your <strong>{{ gpu_name }}</strong>.
+                {% else %}
+                Accelerates inference using NVIDIA GeForce / RTX graphics cards.
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CUDA On-Demand Installer Box -->
+        <div id="settings-cuda-box" style="margin: 14px 0 20px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; {{ '' if (compute_device == 'gpu' and not cuda_installed) else 'display: none;' }}">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong style="font-size: 13px; color: var(--ink);">CUDA Runtime Libraries</strong>
+              <div style="font-size: 11.5px; color: var(--ink3);">Required for GPU acceleration (~850 MB)</div>
+            </div>
+            <button type="button" class="btn" id="settings-cuda-install-btn" onclick="startCudaDownload('settings')">
+              Download &amp; Install
+            </button>
+          </div>
+          <div id="settings-cuda-progress" style="display: none; margin-top: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+              <span id="settings-cuda-status-text" style="color: var(--ink);">Downloading...</span>
+              <span id="settings-cuda-percent-text" style="color: var(--ink2); font-family: var(--mono);">0%</span>
+            </div>
+            <div class="progress-container" style="margin-top: 0;">
+              <div class="progress-bar" id="settings-cuda-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <span class="cap" style="margin: 18px 0 8px; display: block;">Hardware &amp; Runtime</span>
         <div class="kv">
           <div>
             <span>Model</span>
             <code>ggml-org/vllm-d3-lite-GGUF:Q8_0</code>
           </div>
           <div>
-            <span>Hardware offload</span>
-            <code>GTX 1650 (100% layers in VRAM)</code>
+            <span>Compute Mode</span>
+            <code id="settings-active-compute-label">{{ 'NVIDIA GPU (' ~ gpu_name ~ ')' if compute_device == 'gpu' else 'CPU Multi-threaded' }}</code>
           </div>
           <div>
             <span>Context / Batch</span>

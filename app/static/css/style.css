@@ -1358,3 +1358,181 @@ nav {
   background: transparent !important;
   display: none !important;
 }
+
+/* Onboarding & Compute Engine Styles */
+.compute-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.compute-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  cursor: pointer;
+  transition: border-color .18s, background .18s, box-shadow .18s;
+  text-align: left;
+  user-select: none;
+}
+
+.compute-card:hover {
+  background: var(--hover);
+  border-color: var(--ink3);
+}
+
+.compute-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--card));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.compute-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink3);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: border-color .15s, background .15s;
+}
+
+.compute-card.selected .compute-radio {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.compute-card.selected .compute-radio::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--on-accent);
+}
+
+.compute-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.compute-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.compute-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.compute-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--ink2);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.compute-badge.download {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.compute-badge.ready {
+  background: rgba(74, 140, 95, .15);
+  color: var(--ok);
+  border-color: rgba(74, 140, 95, .3);
+}
+
+.compute-desc {
+  font-size: 12.5px;
+  color: var(--ink2);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.progress-container {
+  margin-top: 12px;
+  background: var(--hover);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 8px;
+  border: 1px solid var(--line);
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 0%;
+  transition: width .2s ease;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.modal-actions-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: 28px;
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 18px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+
+.btn-secondary:hover {
+  background: var(--hover);
+  border-color: var(--ink3);
+}
+
+.onboarding-download-card {
+  margin-top: 16px;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+}
+
+.onboarding-download-card.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--card));
+}
+
+

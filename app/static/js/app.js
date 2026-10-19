@@ -334,19 +334,312 @@ async function pollEngineStatus() {
     if (!res.ok) return;
     const data = await res.json();
     const dot = document.getElementById("vram-dot");
+    const label = document.getElementById("vram-footer-label");
     const indicator = document.querySelector(".engine-indicator");
-    const tag = document.querySelector(".engine-tag");
 
     if (data.healthy) {
-      if (dot) dot.style.background = "var(--ok)";
-      if (tag) tag.textContent = "VRAM";
+      if (dot) {
+        dot.style.background = "var(--ok)";
+        dot.style.animation = "none";
+      }
+      if (label) label.textContent = "vllm-d3-lite";
       if (indicator) indicator.title = "Engine status: Online in VRAM";
+    } else if (data.status === "downloading") {
+      if (dot) {
+        dot.style.background = "var(--warn, #e5a93c)";
+        dot.style.animation = "pulse 1.5s infinite";
+      }
+      if (label) label.textContent = "Downloading model…";
+      if (indicator) indicator.title = "Engine status: Downloading model (first launch)";
     } else {
-      if (dot) dot.style.background = "var(--ink3)";
-      if (tag) tag.textContent = "Off";
+      if (dot) {
+        dot.style.background = "var(--ink3)";
+        dot.style.animation = "none";
+      }
+      if (label) label.textContent = "vllm-d3-lite";
       if (indicator) indicator.title = "Engine status: Engine Paused";
     }
   } catch (err) {
     // Silent fail
   }
 }
+
+/* Onboarding Controller */
+let selectedOnboardingCompute = "cpu";
+let cudaPollTimer = null;
+
+function selectComputeOption(type) {
+  selectedOnboardingCompute = type;
+  const cpuCard = document.getElementById("card-compute-cpu");
+  const gpuCard = document.getElementById("card-compute-gpu");
+  if (cpuCard) cpuCard.classList.toggle("selected", type === "cpu");
+  if (gpuCard) gpuCard.classList.toggle("selected", type === "gpu");
+}
+
+function goToOnboardingStep(step) {
+  const computeStep = document.getElementById("onboarding-step-compute");
+  const mailStep = document.getElementById("onboarding-step-mail");
+  const computeTab = document.getElementById("onboarding-tab-compute");
+  const mailTab = document.getElementById("onboarding-tab-mail");
+
+  if (step === "compute") {
+    if (computeStep) computeStep.style.display = "block";
+    if (mailStep) mailStep.style.display = "none";
+    if (computeTab) computeTab.classList.add("on");
+    if (mailTab) mailTab.classList.remove("on");
+  } else {
+    if (computeStep) computeStep.style.display = "none";
+    if (mailStep) mailStep.style.display = "block";
+    if (computeTab) computeTab.classList.remove("on");
+    if (mailTab) mailTab.classList.add("on");
+  }
+}
+
+let modelPollTimer = null;
+
+async function startOnboardingSetup() {
+  const nextBtn = document.getElementById("onboarding-compute-next-btn");
+  const dlSection = document.getElementById("onboarding-download-section");
+  const dlTitle = document.getElementById("onboarding-dl-title");
+  const dlSub = document.getElementById("onboarding-dl-sub");
+  const dlPercent = document.getElementById("onboarding-dl-percent");
+  const dlBar = document.getElementById("onboarding-dl-bar");
+  const dlStats = document.getElementById("onboarding-dl-stats");
+  const dlStatus = document.getElementById("onboarding-dl-status");
+
+  if (nextBtn) {
+    nextBtn.disabled = true;
+    nextBtn.textContent = "Setting up...";
+  }
+
+  // 1. Save compute preference
+  const formData = new FormData();
+  formData.append("device", selectedOnboardingCompute);
+  try {
+    await fetch("/api/settings/compute", { method: "POST", body: formData });
+  } catch (e) {}
+
+  // 2. If GPU selected, install CUDA if needed
+  if (selectedOnboardingCompute === "gpu") {
+    try {
+      const cudaRes = await fetch("/api/cuda/status");
+      const cudaData = await cudaRes.json();
+      if (!cudaData.installed) {
+        if (dlSection) dlSection.style.display = "block";
+        if (dlTitle) dlTitle.textContent = "Downloading CUDA acceleration runtime";
+        if (dlSub) dlSub.textContent = "NVIDIA CUDA runtime libraries (~850 MB)";
+        if (dlStatus) dlStatus.textContent = "Initializing download…";
+
+        await fetch("/api/cuda/install", { method: "POST" });
+        await new Promise((resolve) => {
+          const timer = setInterval(async () => {
+            try {
+              const r = await fetch("/api/cuda/status");
+              const d = await r.json();
+              if (d.state.status === "downloading") {
+                if (dlBar) dlBar.style.width = `${d.state.percent}%`;
+                if (dlPercent) dlPercent.textContent = `${d.state.percent}%`;
+                if (dlStats) dlStats.textContent = d.state.message || "Downloading...";
+                if (dlStatus) dlStatus.textContent = "In progress";
+              } else if (d.state.status === "ready" || d.installed) {
+                clearInterval(timer);
+                resolve();
+              } else if (d.state.status === "error") {
+                clearInterval(timer);
+                resolve();
+              }
+            } catch (err) {
+              clearInterval(timer);
+              resolve();
+            }
+          }, 800);
+        });
+      }
+    } catch (e) {}
+  }
+
+  // 3. Check and download classification model
+  try {
+    const modelRes = await fetch("/api/model/status");
+    const modelData = await modelRes.json();
+
+    if (modelData.downloaded) {
+      if (dlSection) dlSection.style.display = "block";
+      if (dlTitle) dlTitle.textContent = "Classification model ready";
+      if (dlSub) dlSub.textContent = "ggml-org/vllm-d3-lite-GGUF:Q8_0";
+      if (dlPercent) dlPercent.textContent = "100%";
+      if (dlBar) dlBar.style.width = "100%";
+      if (dlStats) dlStats.textContent = "Verified on disk ✓";
+      if (dlStatus) dlStatus.textContent = "Ready";
+
+      setTimeout(() => {
+        goToOnboardingStep("mail");
+      }, 500);
+      return;
+    }
+
+    // Start model download
+    if (dlSection) dlSection.style.display = "block";
+    if (dlTitle) dlTitle.textContent = "Downloading classification model";
+    if (dlSub) dlSub.textContent = "ggml-org/vllm-d3-lite-GGUF (Q8_0, 1.08 GB)";
+    if (dlStatus) dlStatus.textContent = "Connecting to repository…";
+
+    await fetch("/api/model/download", { method: "POST" });
+
+    if (modelPollTimer) clearInterval(modelPollTimer);
+    modelPollTimer = setInterval(async () => {
+      try {
+        const res = await fetch("/api/model/status");
+        if (!res.ok) return;
+        const data = await res.json();
+        const st = data.state;
+
+        if (st.status === "downloading") {
+          if (dlBar) dlBar.style.width = `${st.percent}%`;
+          if (dlPercent) dlPercent.textContent = `${st.percent}%`;
+          if (dlStats) dlStats.textContent = `${st.downloaded_mb || 0} MB / ${st.total_mb || 1082} MB`;
+          if (dlStatus) dlStatus.textContent = "Downloading…";
+        } else if (st.status === "ready" || data.downloaded) {
+          clearInterval(modelPollTimer);
+          modelPollTimer = null;
+          if (dlBar) dlBar.style.width = "100%";
+          if (dlPercent) dlPercent.textContent = "100%";
+          if (dlTitle) dlTitle.textContent = "Model downloaded & loaded ✓";
+          if (dlStats) dlStats.textContent = `${st.total_mb || 1082} MB / ${st.total_mb || 1082} MB`;
+          if (dlStatus) dlStatus.textContent = "Complete";
+
+          setTimeout(() => {
+            goToOnboardingStep("mail");
+          }, 800);
+        } else if (st.status === "error") {
+          clearInterval(modelPollTimer);
+          modelPollTimer = null;
+          if (dlStatus) dlStatus.textContent = `Error: ${st.error || "Download failed"}`;
+          if (nextBtn) {
+            nextBtn.disabled = false;
+            nextBtn.textContent = "Retry Download";
+          }
+        }
+      } catch (err) {}
+    }, 500);
+  } catch (err) {
+    goToOnboardingStep("mail");
+  }
+}
+
+async function finishOnboarding(openAccounts = false) {
+  const scrim = document.getElementById("onboarding-scrim");
+  if (scrim) scrim.classList.remove("on");
+
+  // Save selection and mark completed
+  const formData = new FormData();
+  formData.append("device", selectedOnboardingCompute);
+  try {
+    await fetch("/api/onboarding/complete", {
+      method: "POST",
+      body: formData,
+    });
+  } catch (e) {}
+
+  showToast(`Setup completed (${selectedOnboardingCompute.toUpperCase()} mode active)`);
+
+  if (openAccounts) {
+    openSettingsModal("accounts");
+    showAccountsInstructions();
+  }
+}
+
+/* Compute Device Settings & CUDA Installer */
+async function switchComputeDevice(device) {
+  const cpuCard = document.getElementById("settings-card-cpu");
+  const gpuCard = document.getElementById("settings-card-gpu");
+  const cudaBox = document.getElementById("settings-cuda-box");
+  const activeLabel = document.getElementById("settings-active-compute-label");
+
+  if (cpuCard) cpuCard.classList.toggle("selected", device === "cpu");
+  if (gpuCard) gpuCard.classList.toggle("selected", device === "gpu");
+
+  const formData = new FormData();
+  formData.append("device", device);
+  try {
+    const res = await fetch("/api/settings/compute", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (device === "gpu") {
+      if (!data.cuda_installed && cudaBox) {
+        cudaBox.style.display = "block";
+      }
+      if (activeLabel) activeLabel.textContent = "NVIDIA GPU (CUDA)";
+      showToast("Compute device set to NVIDIA GPU");
+    } else {
+      if (cudaBox) cudaBox.style.display = "none";
+      if (activeLabel) activeLabel.textContent = "CPU Multi-threaded";
+      showToast("Compute device set to CPU");
+    }
+  } catch (e) {}
+}
+
+async function startCudaDownload(context = "settings") {
+  const btn = document.getElementById(`${context}-cuda-install-btn`);
+  const progressBox = document.getElementById(`${context}-cuda-progress`);
+  const bar = document.getElementById(`${context}-cuda-bar`);
+  const statusText = document.getElementById(`${context}-cuda-status-text`);
+  const percentText = document.getElementById(`${context}-cuda-percent-text`);
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Downloading...";
+  }
+  if (progressBox) progressBox.style.display = "block";
+
+  try {
+    await fetch("/api/cuda/install", { method: "POST" });
+  } catch (e) {}
+
+  if (cudaPollTimer) clearInterval(cudaPollTimer);
+  cudaPollTimer = setInterval(async () => {
+    try {
+      const res = await fetch("/api/cuda/status");
+      if (!res.ok) return;
+      const data = await res.json();
+      const state = data.state;
+
+      if (state.status === "downloading") {
+        if (bar) bar.style.width = `${state.percent}%`;
+        if (percentText) percentText.textContent = `${state.percent}%`;
+        if (statusText) statusText.textContent = `Downloading CUDA runtime (${state.percent}%)...`;
+      } else if (state.status === "extracting") {
+        if (bar) bar.style.width = `95%`;
+        if (percentText) percentText.textContent = `95%`;
+        if (statusText) statusText.textContent = "Extracting runtime libraries...";
+      } else if (state.status === "ready") {
+        clearInterval(cudaPollTimer);
+        cudaPollTimer = null;
+        if (bar) bar.style.width = `100%`;
+        if (percentText) percentText.textContent = `100%`;
+        if (statusText) statusText.textContent = "CUDA runtime installed successfully!";
+        if (btn) {
+          btn.textContent = "Installed ✓";
+          btn.disabled = true;
+        }
+        const badge = document.getElementById(`${context}-gpu-badge`);
+        if (badge) {
+          badge.className = "compute-badge ready";
+          badge.textContent = "Ready";
+        }
+        showToast("CUDA runtime installed and active!");
+      } else if (state.status === "error") {
+        clearInterval(cudaPollTimer);
+        cudaPollTimer = null;
+        if (statusText) statusText.textContent = `Error: ${state.error || "Download failed"}`;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Retry Download";
+        }
+      }
+    } catch (e) {}
+  }, 1000);
+}
+

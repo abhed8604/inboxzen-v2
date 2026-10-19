@@ -1,14 +1,11 @@
 import asyncio
 import base64
 from email.utils import parsedate_to_datetime, parseaddr
-try:
-    from selectolax.lexbor import LexborHTMLParser as HTMLParser
-except ImportError:
-    from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser as HTMLParser
 import httpx
 from app.auth import get_gmail_service
-from app.config import compute_prompt_hash
-from app.db import get_db, get_triage_prompt
+from app.config import compute_prompt_hash, DEFAULT_TRIAGE_PROMPT
+from app.db import get_db, get_setting
 from app.classifier import classify_email
 
 sync_lock = asyncio.Lock()
@@ -49,9 +46,9 @@ def extract_email_bodies(payload: dict, snippet: str) -> tuple[str, str, str]:
 
     return clean_for_model, full_text, full_html
 
-def fetch_new_messages_sync(max_results: int = 30, interactive: bool = True) -> int:
+def fetch_new_messages_sync(max_results: int = 30) -> int:
     try:
-        service = get_gmail_service(interactive=interactive)
+        service = get_gmail_service()
         if not service:
             return 0
     except Exception:
@@ -120,15 +117,15 @@ def fetch_new_messages_sync(max_results: int = 30, interactive: bool = True) -> 
             inserted += 1
     return inserted
 
-async def run_sync_and_classify(client: httpx.AsyncClient, fetch_gmail: bool = True, interactive: bool = True) -> dict:
+async def run_sync_and_classify(client: httpx.AsyncClient, fetch_gmail: bool = True) -> dict:
     if sync_lock.locked():
         return {"status": "busy"}
 
     async with sync_lock:
         if fetch_gmail:
-            await asyncio.to_thread(fetch_new_messages_sync, 30, interactive)
+            await asyncio.to_thread(fetch_new_messages_sync, 30)
 
-        triage_prompt = get_triage_prompt()
+        triage_prompt = get_setting("triage_prompt", DEFAULT_TRIAGE_PROMPT)
         current_hash = compute_prompt_hash(triage_prompt)
 
         with get_db() as conn:
