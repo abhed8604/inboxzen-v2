@@ -1,4 +1,6 @@
 import hashlib
+import logging
+import logging.handlers
 import os
 import shutil
 import subprocess
@@ -8,6 +10,38 @@ from pathlib import Path
 APP_NAME = "InboxZen"
 DATA_DIR = Path.home() / ".local" / "share" / APP_NAME
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+LOG_PATH = DATA_DIR / "inboxzen.log"
+LLAMA_LOG_PATH = DATA_DIR / "llama-server.log"
+
+_logging_configured = False
+
+def setup_logging(level: int = logging.INFO):
+    """Configures app logging to a rotating file in DATA_DIR and stderr."""
+    global _logging_configured
+    if _logging_configured:
+        return
+    _logging_configured = True
+
+    formatter = logging.Formatter(
+        "%(asctime)s %(name)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    root.addHandler(stream_handler)
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        LOG_PATH, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
+
+    # Keep per-request library chatter out of the logs
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 def get_bundle_dir() -> Path:
     """Returns the base directory for bundled resources (PyInstaller-compatible)."""
@@ -28,9 +62,15 @@ LLAMA_PORT = 8081
 LLAMA_URL = f"http://{LLAMA_HOST}:{LLAMA_PORT}"
 MODEL_REPO = "ggml-org/vllm-d3-lite-GGUF:Q8_0"
 MODEL_FILENAME = "vllm-d3-lite-Q8_0.gguf"
+MODEL_DISPLAY_NAME = "vllm-d3-lite:Q8_0"
 MODEL_URL = f"https://huggingface.co/ggml-org/vllm-d3-lite-GGUF/resolve/main/{MODEL_FILENAME}"
 
-SYNC_INTERVAL_SECONDS = 60
+# Classification payload budget (chars). The -c 4096 context covers rules + body
+# with headroom: rules and body tokens ~600 + ~875 + wrappers ~150 at worst case.
+TRIAGE_PROMPT_MAX_CHARS = 2400
+MODEL_INPUT_CHARS = 3500
+
+SYNC_INTERVAL_SECONDS = 300
 
 def get_model_path() -> Path | None:
     """Returns the local path to the GGUF model file if it exists."""
@@ -42,7 +82,7 @@ def get_model_path() -> Path | None:
         for gguf in hf_cache.glob("**/*.gguf"):
             if gguf.stat().st_size > 500_000_000:
                 return gguf.resolve()
-    dev_path = Path("bin") / MODEL_FILENAME
+    dev_path = get_bundle_dir() / "bin" / MODEL_FILENAME
     if dev_path.exists() and dev_path.stat().st_size > 500_000_000:
         return dev_path
     return None
@@ -52,24 +92,35 @@ def is_model_downloaded() -> bool:
     return get_model_path() is not None
 
 DEFAULT_TRIAGE_PROMPT = """# User Profile
-Final-year engineering student & software developer.
+Final-year engineering student & software developer. Actively job-hunting through on-campus placement and off-campus applications. The inbox is mostly college, placement, and developer-tool traffic — judge each mail against that reality.
 
-## VERY_IMPORTANT (Action Required or Urgent)
-- Direct emails from recruiters, hiring managers, HR, professors, or teammates
-- Interview invitations, scheduling links, and job offers
-- Online coding assessments (HackerRank, Mettl, CodeSignal, OA links)
-- Placement cell (TnP) notices and urgent academic deadlines
-- OTPs, 2FA security alerts, bank bills, and travel tickets
+## VERY_IMPORTANT (Action Required or Time-Sensitive — act today)
+- Direct mails from recruiters, hiring managers, HR, professors, or teammates
+- Interview invitations, online assessments (HackerRank, Mettl, CodeSignal, company OA), scheduling links, and job offers
+- Placement cell (TnP) notices: drives, shortlists, registration cut-offs, submission deadlines
+- OTPs, 2FA and login alerts, security warnings, suspicious-activity notices
+- Bills, fees, or dues with a stated deadline; travel tickets and bookings
+- Any deadline stated in the mail that lands within the next 48 hours
 
-## IMPORTANT (Worth Reading Today, No Urgent Deadline)
-- General college or department announcements
-- GitHub PRs, issue mentions, and CI/CD notifications
-- Hackathon updates, project threads, and package delivery updates
+## IMPORTANT (Worth Reading Today — no urgent clock)
+- General college or department announcements, timetable or venue changes, event notices
+- GitHub mentions, PR review requests, issue assigns, CI failures on your repositories
+- Hackathon announcements, project or collaboration threads, community invitations
+- Package delivery updates (especially out-for-delivery or failed delivery)
+- Off-campus job postings that genuinely match the profile (not bulk digests)
 
-## LOW_PRIORITY (Automated Bulk Mail & Noise)
-- Automated job board digests (LinkedIn Job Alerts, Naukri, Unstop, Wellfound digests)
-- Marketing newsletters, course promotions, and discount codes
-- Automated payment receipts, social media digests, and cold outreach"""
+## LOW_PRIORITY (Automated Bulk Mail & Noise — no reply needed)
+- Job-board digests and alert mails: LinkedIn Job Alerts, Naukri, Unstop, Wellfound, Internshala
+- Marketing newsletters, discount codes, course promos, webinar and conference reminders
+- Social-media digests and notification storms (YouTube, Kaggle, Substack, forums)
+- Automated receipts, confirmations, and tickets with no action and no deadline
+- Cold outreach that asks for nothing specific; bulk mail from firms never applied to
+
+## Tiebreakers
+- A real person's name in From plus a specific question or ask → very_important, never low_priority.
+- "Action required" boilerplate inside a bulk marketing footer → still low_priority.
+- An automated mail that carries a real deadline (exam form, fee payment, hall ticket) → very_important.
+- Torn between important and low_priority → answer important. Torn between very_important and important → answer important unless a deadline, OTP, or interview is explicitly stated."""
 
 def get_compute_device() -> str:
     from app.db import get_setting
@@ -143,7 +194,7 @@ def get_llama_cmd(gpu_enabled: bool | None = None) -> tuple[list[str], dict]:
         *model_args,
         "--no-mmproj",          # Do not load vision projector into VRAM
         "-ngl", ngl,            # 99 for GPU VRAM, 0 for pure CPU
-        "-c", "2048",           # Total context size
+        "-c", "4096",           # Context: rules + body with headroom; KV cache stays tiny
         "-b", "2048",           # Batch size (MUST equal -ub for vllm-d3)
         "-ub", "2048",          # Micro-batch size (fits full email + triage prompt)
         "-np", "1",             # Single slot to keep memory flat

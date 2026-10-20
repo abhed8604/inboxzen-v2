@@ -1,0 +1,7 @@
+Fonts vendored from Google Fonts, all licensed under the SIL Open Font License 1.1:
+
+- Inter — Copyright The Inter Project Authors (rsms.me/inter)
+- Instrument Serif — Copyright The Instrument Serif Project Authors
+- JetBrains Mono — Copyright JetBrains Mono Project Authors (jetbrains.com/mono)
+
+License text: https://scripts.sil.org/OFL

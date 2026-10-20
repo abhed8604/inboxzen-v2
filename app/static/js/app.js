@@ -5,11 +5,10 @@
 let toastTimeout = null;
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Theme initialization
+  // Theme initialization (cookie is the single store; the server also reads it)
   const cookieMatch = document.cookie.match(/(^|;)\s*iz-theme=([^;]+)/);
-  const savedTheme = localStorage.getItem("iz-theme") || (cookieMatch ? cookieMatch[2] : null);
-  if (savedTheme) {
-    setTheme(savedTheme, false);
+  if (cookieMatch) {
+    setTheme(cookieMatch[2], false);
   } else {
     const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
     setTheme(prefersDark ? "dark" : "light", false);
@@ -19,22 +18,38 @@ document.addEventListener("DOMContentLoaded", () => {
   pollEngineStatus();
   setInterval(pollEngineStatus, 15000);
 
-  // Keyboard shortcut: Escape to close modal
+  // Live feed change detection (mirror sync + background classification)
+  pollFeedChanges();
+  setInterval(pollFeedChanges, 15000);
+
+  // Keyboard shortcut: Escape to close modals
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSettingsModal();
+    if (e.key !== "Escape") return;
+    const onboarding = document.getElementById("onboarding-scrim");
+    if (onboarding && onboarding.classList.contains("on")) {
+      finishOnboarding(false);
+      return;
+    }
+    closeSettingsModal();
   });
 
   // Auto-sync reader pane when feed list updates
   document.body.addEventListener("htmx:afterSwap", (evt) => {
     if (evt.detail.target && evt.detail.target.id === "list" && evt.detail.elt && evt.detail.elt.id === "list") {
-      const activeItem = document.querySelector("#list .item.on") || document.querySelector("#list .item");
+      // Preserve the email the user is reading across refreshes (background
+      // mirror sync can swap the list at any time while the reader is open).
+      const currentReaderId = document.getElementById("rhead")?.dataset.emailId;
+      const activeItem =
+        (currentReaderId && document.querySelector(`#list .item[data-id="${CSS.escape(currentReaderId)}"]`)) ||
+        document.querySelector("#list .item.on") ||
+        document.querySelector("#list .item");
       if (activeItem && activeItem.dataset.id) {
         if (!activeItem.classList.contains("on")) {
           document.querySelectorAll("#list .item").forEach((el) => el.classList.remove("on"));
           activeItem.classList.add("on");
         }
-        const currentReaderId = document.getElementById("rhead")?.dataset.emailId;
-        if (currentReaderId !== activeItem.dataset.id) {
+        const readerId = document.getElementById("rhead")?.dataset.emailId;
+        if (readerId !== activeItem.dataset.id) {
           htmx.ajax("GET", `/emails/${activeItem.dataset.id}`, {
             target: "#reader",
             swap: "innerHTML",
@@ -58,9 +73,28 @@ document.addEventListener("DOMContentLoaded", () => {
   // Ensure active selector class remains stable after HTMX settle
   document.body.addEventListener("htmx:afterSettle", (evt) => {
     if (evt.detail.target && evt.detail.target.id === "list") {
-      const activeItem = document.querySelector("#list .item.on") || document.querySelector("#list .item");
+      const currentReaderId = document.getElementById("rhead")?.dataset.emailId;
+      const activeItem =
+        (currentReaderId && document.querySelector(`#list .item[data-id="${CSS.escape(currentReaderId)}"]`)) ||
+        document.querySelector("#list .item");
       if (activeItem && !activeItem.classList.contains("on")) {
+        document.querySelectorAll("#list .item").forEach((el) => el.classList.remove("on"));
         activeItem.classList.add("on");
+      }
+    }
+  });
+  document.body.addEventListener("htmx:afterRequest", (evt) => {
+    const form = evt.detail && evt.detail.elt;
+    if (form && form.matches && form.matches('form[hx-post="/settings/prompt"]')) {
+      if (evt.detail.successful) {
+        handlePromptSaved();
+      } else {
+        let msg = "Failed to save instructions";
+        const xhr = evt.detail.xhr;
+        if (xhr && xhr.status === 400) {
+          try { msg = JSON.parse(xhr.responseText).message || msg; } catch (e) {}
+        }
+        showToast(msg);
       }
     }
   });
@@ -82,6 +116,18 @@ function syncIframeTheme() {
   } catch (e) {}
 }
 
+/* Feed list refresh — single source for the /emails query-string + htmx swap */
+function refreshFeedList() {
+  const tab = document.getElementById("filter-tab")?.value || "important";
+  const q = document.getElementById("filter-query")?.value || "";
+  const unread = document.getElementById("filter-unread")?.value || "0";
+  const acct = document.getElementById("filter-account")?.value || "";
+  htmx.ajax("GET", `/emails?tab=${encodeURIComponent(tab)}&q=${encodeURIComponent(q)}&unread=${unread}&account=${encodeURIComponent(acct)}`, {
+    target: "#list",
+    swap: "innerHTML",
+  });
+}
+
 /* Tabs & Filter Controls */
 function setFilterTab(tab, btnEl) {
   const hiddenInput = document.getElementById("filter-tab");
@@ -97,15 +143,8 @@ function setFilterTab(tab, btnEl) {
 }
 
 function selectNavInbox() {
-  const importantChip = document.querySelector('#tabs button[data-t="important"]');
-  setFilterTab("important", importantChip);
-  const unreadVal = document.getElementById("filter-unread")?.value || "0";
-  const qVal = document.getElementById("filter-query")?.value || "";
-  const acctVal = document.getElementById("filter-account")?.value || "";
-  htmx.ajax("GET", `/emails?tab=important&q=${encodeURIComponent(qVal)}&unread=${unreadVal}&account=${encodeURIComponent(acctVal)}`, {
-    target: "#list",
-    swap: "innerHTML",
-  });
+  setFilterTab("important", document.querySelector('#tabs button[data-t="important"]'));
+  refreshFeedList();
 }
 
 function toggleUnreadFilter() {
@@ -120,14 +159,7 @@ function toggleUnreadFilter() {
     unreadTg.classList.toggle("on", willBeActive);
   }
 
-  const tab = document.getElementById("filter-tab")?.value || "important";
-  const q = document.getElementById("filter-query")?.value || "";
-  const acct = document.getElementById("filter-account")?.value || "";
-
-  htmx.ajax("GET", `/emails?tab=${encodeURIComponent(tab)}&q=${encodeURIComponent(q)}&unread=${willBeActive ? 1 : 0}&account=${encodeURIComponent(acct)}`, {
-    target: "#list",
-    swap: "innerHTML",
-  });
+  refreshFeedList();
 }
 
 function toggleAccountFilter(accountEmail, chipEl) {
@@ -144,14 +176,7 @@ function toggleAccountFilter(accountEmail, chipEl) {
     chip.classList.toggle("active", chip.dataset.account === targetAccount);
   });
 
-  const tab = document.getElementById("filter-tab")?.value || "important";
-  const q = document.getElementById("filter-query")?.value || "";
-  const unreadVal = document.getElementById("filter-unread")?.value || "0";
-
-  htmx.ajax("GET", `/emails?tab=${encodeURIComponent(tab)}&q=${encodeURIComponent(q)}&unread=${unreadVal}&account=${encodeURIComponent(targetAccount)}`, {
-    target: "#list",
-    swap: "innerHTML",
-  });
+  refreshFeedList();
 }
 
 function selectFeedItem(btnEl) {
@@ -163,6 +188,28 @@ function selectFeedItem(btnEl) {
 
   const dot = btnEl.querySelector(".udot");
   if (dot) dot.remove();
+
+  const id = btnEl.dataset.id;
+  if (id) fetch(`/emails/${encodeURIComponent(id)}/read`, { method: "POST" }).catch(() => {});
+}
+
+/* Multi-account connect */
+async function connectNewAccount(btnEl) {
+  if (btnEl) btnEl.disabled = true;
+  showToast("Opening Google sign-in...");
+  try {
+    const r = await fetch("/api/accounts/connect", { method: "POST" });
+    if (r.ok) {
+      showToast("Account connected");
+      location.reload();
+    } else {
+      showToast("Google sign-in failed or was cancelled");
+    }
+  } catch {
+    showToast("Google sign-in failed");
+  } finally {
+    if (btnEl) btnEl.disabled = false;
+  }
 }
 
 /* In-App Reader HTML / Plain Text Toggle */
@@ -224,6 +271,8 @@ function openSettingsModal(pane = "rules") {
   if (textarea) textarea.scrollTop = 0;
   if (gutter) gutter.scrollTop = 0;
   setTimeout(updatePromptLineNumbers, 40);
+  const closeBtn = document.querySelector("#scrim .x");
+  if (closeBtn) closeBtn.focus();
 }
 
 function closeSettingsModal() {
@@ -255,18 +304,51 @@ function switchSettingsPane(paneKey) {
 }
 
 /* Prompt Line Numbers & Synchronized Scrolling */
+let promptMirror = null;
+
+function measurePromptHeights(lines) {
+  const textarea = document.getElementById("triage-markdown-input");
+  if (!textarea) return [];
+
+  if (!promptMirror || !promptMirror.isConnected) {
+    promptMirror = document.createElement("div");
+    promptMirror.style.cssText =
+      "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre-wrap;word-break:break-word;padding:0;margin:0;line-height:20px;";
+    document.body.appendChild(promptMirror);
+  }
+  const ta = getComputedStyle(textarea);
+  promptMirror.style.fontSize = ta.fontSize;
+  promptMirror.style.fontWeight = ta.fontWeight;
+  promptMirror.style.fontFamily = ta.fontFamily;
+  promptMirror.style.letterSpacing = ta.letterSpacing;
+  promptMirror.style.width = `${textarea.clientWidth - parseFloat(ta.paddingLeft) - parseFloat(ta.paddingRight)}px`;
+
+  promptMirror.replaceChildren(
+    ...lines.map((line) => {
+      const row = document.createElement("div");
+      if (line) row.textContent = line;
+      return row;
+    })
+  );
+  return lines.map((_, i) => Math.max(20, promptMirror.children[i].offsetHeight));
+}
+
 function updatePromptLineNumbers() {
   const textarea = document.getElementById("triage-markdown-input");
   const gutter = document.getElementById("prompt-gutter");
   if (!textarea || !gutter) return;
 
-  const count = (textarea.value.match(/\n/g) || []).length + 1;
-  let html = "";
-  for (let i = 1; i <= count; i++) {
-    html += `<div>${i}</div>`;
-  }
-  gutter.innerHTML = html;
-  gutter.scrollTop = textarea.scrollTop;
+  const lines = textarea.value.split("\n");
+  const heights = measurePromptHeights(lines);
+
+  gutter.replaceChildren(
+    ...lines.map((_, i) => {
+      const num = document.createElement("div");
+      num.textContent = i + 1;
+      num.style.height = `${heights[i]}px`;
+      return num;
+    })
+  );
 }
 
 function syncPromptScroll() {
@@ -299,9 +381,7 @@ function hideAccountsInstructions() {
 /* Theme Switcher */
 function setTheme(mode, showNotification = true) {
   document.documentElement.dataset.theme = mode;
-  document.documentElement.setAttribute("data-theme", mode);
   try {
-    localStorage.setItem("iz-theme", mode);
     document.cookie = `iz-theme=${mode};path=/;max-age=31536000;SameSite=Lax`;
   } catch (e) {}
 
@@ -351,6 +431,13 @@ async function pollEngineStatus() {
       }
       if (label) label.textContent = "Downloading model…";
       if (indicator) indicator.title = "Engine status: Downloading model (first launch)";
+    } else if (data.status === "error") {
+      if (dot) {
+        dot.style.background = "var(--vi, #b5532f)";
+        dot.style.animation = "none";
+      }
+      if (label) label.textContent = "Engine error";
+      if (indicator) indicator.title = `Engine status: ${data.message || "Error"}`;
     } else {
       if (dot) {
         dot.style.background = "var(--ink3)";
@@ -359,8 +446,116 @@ async function pollEngineStatus() {
       if (label) label.textContent = "vllm-d3-lite";
       if (indicator) indicator.title = "Engine status: Engine Paused";
     }
+
+    const mDot = document.getElementById("model-status-dot");
+    const mText = document.getElementById("model-status-text");
+    if (mDot && mText) {
+      if (data.healthy) {
+        mDot.style.background = "var(--ok)";
+        mDot.style.animation = "none";
+        mText.textContent = "Classifying locally";
+      } else if (data.status === "downloading") {
+        mDot.style.background = "var(--warn, #e5a93c)";
+        mDot.style.animation = "pulse 1.5s infinite";
+        mText.textContent = "Downloading model…";
+      } else if (data.status === "error") {
+        mDot.style.background = "var(--vi, #b5532f)";
+        mDot.style.animation = "none";
+        mText.textContent = data.message || "Engine error";
+      } else {
+        mDot.style.background = "var(--ink3)";
+        mDot.style.animation = "none";
+        mText.textContent = "Offline — starts when needed";
+      }
+      const mSub = document.getElementById("model-status-sub");
+      if (mSub) {
+        mSub.textContent = data.healthy
+          ? `vllm-d3-lite · ${data.device || "CPU"}`
+          : mSub.textContent;
+      }
+    }
   } catch (err) {
     // Silent fail
+  }
+}
+
+/* Feed Change Poller — refreshes the list when the mirror/classifier changes anything */
+let lastFeedSig = null;
+
+async function pollFeedChanges() {
+  try {
+    const res = await fetch("/api/feed/status");
+    if (!res.ok) return;
+    const data = await res.json();
+    const sig = `${data.important},${data.low_priority},${data.total},${data.unread},${data.max_ts}`;
+    if (lastFeedSig === null) {
+      lastFeedSig = sig;
+      return;
+    }
+    if (sig === lastFeedSig) return;
+    lastFeedSig = sig;
+
+    refreshFeedList();
+  } catch (err) {
+    // Silent fail
+  }
+}
+
+/* Rescan progress HUD */
+let rescanPollTimer = null;
+
+function startRescanPolling() {
+  const hud = document.getElementById("rescan-hud");
+  if (!hud) return;
+  hud.hidden = false;
+  const label = document.getElementById("rescan-label");
+  const count = document.getElementById("rescan-count");
+  const fill = document.getElementById("rescan-fill");
+  if (label) label.textContent = "Waking engine…";
+  if (count) count.textContent = "";
+  if (fill) fill.style.width = "0%";
+  if (!rescanPollTimer) rescanPollTimer = setInterval(pollRescanProgress, 1000);
+  pollRescanProgress();
+}
+
+async function pollRescanProgress() {
+  const hud = document.getElementById("rescan-hud");
+  if (!hud) { stopRescanPolling(); return; }
+  try {
+    const res = await fetch("/api/rescan/progress");
+    if (!res.ok) return;
+    const s = await res.json();
+    const label = document.getElementById("rescan-label");
+    const count = document.getElementById("rescan-count");
+    const fill = document.getElementById("rescan-fill");
+    if (s.error) {
+      stopRescanPolling();
+      hud.hidden = true;
+      showToast(`Rescan failed: ${s.error}`);
+      return;
+    }
+    if (s.phase === "scanning") {
+      if (label) label.textContent = "Rescanning inbox…";
+      if (count) count.textContent = `${s.processed}/${s.total}`;
+      if (fill) fill.style.width = s.total ? `${Math.round((s.processed / s.total) * 100)}%` : "0%";
+    }
+    if (s.phase === "done") {
+      stopRescanPolling();
+      hud.hidden = true;
+      const refreshed = s.processed > 0;
+      if (refreshed) refreshFeedList();
+      showToast(refreshed ? `Rescan complete — ${s.processed} mails re-scored` : "Nothing to rescan");
+      return;
+    }
+  } catch (err) {
+    // keep polling silently
+  }
+}
+
+function stopRescanPolling() {
+  if (rescanPollTimer) {
+    clearInterval(rescanPollTimer);
+    rescanPollTimer = null;
   }
 }
 
@@ -393,6 +588,13 @@ function goToOnboardingStep(step) {
     if (computeTab) computeTab.classList.remove("on");
     if (mailTab) mailTab.classList.add("on");
   }
+}
+
+function restoreNextBtn() {
+  const nextBtn = document.getElementById("onboarding-compute-next-btn");
+  if (!nextBtn) return;
+  nextBtn.disabled = false;
+  nextBtn.textContent = "Continue →";
 }
 
 let modelPollTimer = null;
@@ -472,6 +674,7 @@ async function startOnboardingSetup() {
       if (dlStats) dlStats.textContent = "Verified on disk ✓";
       if (dlStatus) dlStatus.textContent = "Ready";
 
+      restoreNextBtn();
       setTimeout(() => {
         goToOnboardingStep("mail");
       }, 500);
@@ -508,6 +711,7 @@ async function startOnboardingSetup() {
           if (dlStats) dlStats.textContent = `${st.total_mb || 1082} MB / ${st.total_mb || 1082} MB`;
           if (dlStatus) dlStatus.textContent = "Complete";
 
+          restoreNextBtn();
           setTimeout(() => {
             goToOnboardingStep("mail");
           }, 800);
@@ -523,6 +727,7 @@ async function startOnboardingSetup() {
       } catch (err) {}
     }, 500);
   } catch (err) {
+    restoreNextBtn();
     goToOnboardingStep("mail");
   }
 }

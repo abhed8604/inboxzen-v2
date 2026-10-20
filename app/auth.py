@@ -1,38 +1,157 @@
 import json
+import logging
 import keyring
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from app.config import APP_NAME, CREDENTIALS_FILE
+from app.db import get_setting, set_setting
+
+log = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-KEYRING_USER = "google_oauth_token"
+LEGACY_KEY = "google_oauth_token"
+TOKEN_KEY_PREFIX = "oauth_token:"
+ACCOUNTS_SETTING = "oauth_accounts"
+
+
+def _keyring_get(user: str) -> str | None:
+    try:
+        return keyring.get_password(APP_NAME, user)
+    except keyring.errors.KeyringError as e:
+        log.error("Keyring unavailable: %s", e)
+        return None
+
+
+def _keyring_set(user: str, value: str) -> bool:
+    try:
+        keyring.set_password(APP_NAME, user, value)
+        return True
+    except keyring.errors.KeyringError as e:
+        log.error("Keyring unavailable: %s", e)
+        return False
+
+
+def get_stored_accounts() -> list[str]:
+    raw = get_setting(ACCOUNTS_SETTING, "[]")
+    try:
+        emails = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return [e.strip() for e in emails if isinstance(e, str) and e.strip()]
+
+
+def _register_account(account: str):
+    accounts = get_stored_accounts()
+    if account not in accounts:
+        accounts.append(account)
+        set_setting(ACCOUNTS_SETTING, json.dumps(accounts))
+
+
+def _store_account_token(account: str, creds: Credentials):
+    if _keyring_set(f"{TOKEN_KEY_PREFIX}{account}", creds.to_json()):
+        _register_account(account)
+
+
+def _load_creds_for(account: str) -> Credentials | None:
+    stored_json = _keyring_get(f"{TOKEN_KEY_PREFIX}{account}")
+    if not stored_json:
+        return None
+    try:
+        return Credentials.from_authorized_user_info(json.loads(stored_json), SCOPES)
+    except (ValueError, KeyError):
+        log.error("Corrupt stored token for %s", account)
+        return None
+
 
 def is_authenticated() -> bool:
-    return bool(keyring.get_password(APP_NAME, KEYRING_USER))
+    return bool(get_stored_accounts()) or bool(_keyring_get(LEGACY_KEY))
 
-def get_gmail_service(interactive: bool = True):
-    creds = None
-    stored_json = keyring.get_password(APP_NAME, KEYRING_USER)
 
-    if stored_json:
-        creds = Credentials.from_authorized_user_info(json.loads(stored_json), SCOPES)
+def get_gmail_service_for(account: str, interactive: bool = True):
+    creds = _load_creds_for(account)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                log.error("Token refresh failed for %s", account)
+                creds = None
+        if not creds:
             if not interactive:
                 return None
-            if not CREDENTIALS_FILE.exists():
-                raise FileNotFoundError(
-                    "Missing credentials.json. Download Desktop OAuth client JSON from Google Cloud Console."
-                )
-            flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = _run_interactive_flow()
+            if not creds:
+                return None
+        if not _keyring_set(f"{TOKEN_KEY_PREFIX}{account}", creds.to_json()):
+            _register_account(account)
 
-        keyring.set_password(APP_NAME, KEYRING_USER, creds.to_json())
-
-    # cache_discovery=False prevents google-api-python-client file cache memory leaks
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
+
+
+def _run_interactive_flow() -> Credentials | None:
+    """Runs the browser OAuth flow. Blocks the calling thread."""
+    if not CREDENTIALS_FILE.exists():
+        log.error("credentials.json missing; cannot run OAuth flow")
+        return None
+    try:
+        flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
+        return flow.run_local_server(port=0)
+    except Exception:
+        log.exception("OAuth flow failed")
+        return None
+
+
+def connect_account() -> str | None:
+    """Interactive OAuth for an additional account. Returns its email or None."""
+    creds = _run_interactive_flow()
+    if not creds:
+        return None
+
+    if not creds.valid and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+        except Exception:
+            log.exception("Token refresh after OAuth failed")
+            return None
+
+    try:
+        service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        email = service.users().getProfile(userId="me").execute().get("emailAddress")
+    except Exception:
+        log.exception("Could not resolve new account email")
+        return None
+
+    if not email:
+        return None
+
+    if not _store_account_token(email, creds):
+        log.error("Could not persist token for %s (keyring failure)", email)
+        return email  # usable this session even if persistence failed
+
+    log.info("Connected account: %s", email)
+    return email
+
+
+def migrate_legacy_token() -> bool:
+    """Moves the pre-multi-account single token under its owner's email."""
+    stored_json = _keyring_get(LEGACY_KEY)
+    if not stored_json:
+        return False
+    try:
+        creds = Credentials.from_authorized_user_info(json.loads(stored_json), SCOPES)
+        if not creds.valid and creds.refresh_token:
+            creds.refresh(Request())
+        service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        email = service.users().getProfile(userId="me").execute().get("emailAddress")
+        if not email:
+            return False
+        _store_account_token(email, creds)
+        keyring.delete_password(APP_NAME, LEGACY_KEY)
+        log.info("Migrated legacy OAuth token to per-account storage for %s", email)
+        return True
+    except Exception:
+        log.exception("Legacy token migration failed; keeping legacy entry")
+        return False

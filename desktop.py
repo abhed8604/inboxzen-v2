@@ -35,34 +35,11 @@ def wait_for_server(url: str, timeout: float = 10.0) -> bool:
     return False
 
 def main():
-    if "--headless-check" in sys.argv:
-        port = find_free_port(8000)
-        server_url = f"http://127.0.0.1:{port}"
-        config = uvicorn.Config(
-            app,
-            host="127.0.0.1",
-            port=port,
-            log_level="warning",
-            access_log=False,
-        )
-        server = uvicorn.Server(config)
-        server_thread = threading.Thread(target=server.run, daemon=True)
-        server_thread.start()
-
-        ready = wait_for_server(server_url, timeout=12.0)
-        server.should_exit = True
-        server_thread.join(timeout=2.0)
-        if ready:
-            print("InboxZen headless server check OK")
-            sys.exit(0)
-        else:
-            print("InboxZen headless server check FAILED", file=sys.stderr)
-            sys.exit(1)
+    headless = "--headless-check" in sys.argv
 
     port = find_free_port(8000)
     server_url = f"http://127.0.0.1:{port}"
 
-    # Configure uvicorn
     config = uvicorn.Config(
         app,
         host="127.0.0.1",
@@ -71,15 +48,20 @@ def main():
         access_log=False,
     )
     server = uvicorn.Server(config)
-
-    # Start uvicorn in background daemon thread
     server_thread = threading.Thread(target=server.run, daemon=True)
     server_thread.start()
 
-    # Wait for server ready
     if not wait_for_server(server_url, timeout=12.0):
+        server.should_exit = True
+        server_thread.join(timeout=2.0)
         print("Failed to start internal server.", file=sys.stderr)
         sys.exit(1)
+
+    if headless:
+        server.should_exit = True
+        server_thread.join(timeout=2.0)
+        print("InboxZen headless server check OK")
+        sys.exit(0)
 
     # Create native desktop window
     window = webview.create_window(

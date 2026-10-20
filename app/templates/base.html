@@ -6,31 +6,19 @@
   <script>
     (function() {
       try {
-        var saved = localStorage.getItem("iz-theme");
-        if (!saved) {
-          var match = document.cookie.match(/(^|;)\s*iz-theme=([^;]+)/);
-          if (match) saved = match[2];
-        }
-        if (saved) {
-          document.documentElement.dataset.theme = saved;
-          document.documentElement.setAttribute("data-theme", saved);
-        }
+        var match = document.cookie.match(/(^|;)\s*iz-theme=([^;]+)/);
+        if (match) document.documentElement.dataset.theme = match[2];
       } catch(e) {}
     })();
   </script>
   <title>{% block title %}InboxZen — Autonomous Email Triage{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="/static/logo.svg" />
 
-  <!-- Typography -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <!-- Core Stylesheet -->
+  <!-- Core Stylesheet (fonts are vendored under /static/fonts) -->
   <link rel="stylesheet" href="/static/css/style.css">
 
-  <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <!-- HTMX (vendored, keeps the app fully offline) -->
+  <script src="/static/js/htmx.min.js"></script>
 
   {% block head %}{% endblock %}
 </head>

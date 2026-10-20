@@ -27,7 +27,7 @@ def init_db():
                 subject TEXT,
                 date_str TEXT,
                 timestamp INTEGER,
-                model_input TEXT,    -- 1500-char clean text sent to vllm-d3-lite
+                model_input TEXT,    -- Clean body text sent to vllm-d3-lite (capped at MODEL_INPUT_CHARS)
                 body_text TEXT,      -- Full plain-text email for in-app viewing
                 body_html TEXT,      -- Full HTML email for sandboxed iframe viewing
                 label TEXT,          -- 'very_important', 'important', 'low_priority', or NULL
@@ -53,6 +53,10 @@ def init_db():
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS local_reads (
+                email_id TEXT PRIMARY KEY
+            );
         """)
 
         conn.execute(
@@ -76,17 +80,15 @@ def set_setting(key: str, value: str):
             (key, str(value))
         )
 
+LABEL_DISPLAY = {
+    "very_important": "Very Important",
+    "important": "Important",
+    "low_priority": "Low Priority",
+}
+
 def format_email_dict(row: dict) -> dict:
     item = dict(row)
-    label = item.get("label") or "important"
-    if label == "very_important":
-        item["label_display"] = "Very Important"
-    elif label == "important":
-        item["label_display"] = "Important"
-    elif label == "low_priority":
-        item["label_display"] = "Low Priority"
-    else:
-        item["label_display"] = "Queued"
+    item["label_display"] = LABEL_DISPLAY.get(item.get("label"), "Queued")
 
     item["unread"] = bool(item.get("unread", 0))
     item["account"] = item.get("account") or ""
@@ -116,8 +118,71 @@ def format_email_dict(row: dict) -> dict:
     return item
 
 def mark_email_read(email_id: str):
+    """Marks locally-read so the Gmail mirror never flips it back to unread."""
     with get_db() as conn:
         conn.execute("UPDATE emails SET unread = 0 WHERE id = ?", (email_id,))
+        conn.execute("INSERT OR IGNORE INTO local_reads (email_id) VALUES (?)", (email_id,))
+
+def set_unread_states(account: str, unread_ids: set[str], read_ids: set[str]) -> int:
+    """Bulk-mirrors Gmail read state; touches only rows in the wrong state."""
+    changed = 0
+    with get_db() as conn:
+        for target, ids in ((1, unread_ids), (0, read_ids)):
+            id_list = sorted(id for id in ids if id)
+            for start in range(0, len(id_list), 500):
+                chunk = id_list[start:start + 500]
+                marks = ",".join("?" * len(chunk))
+                cur = conn.execute(
+                    f"UPDATE emails SET unread = ? WHERE account = ? AND unread != ? "
+                    f"AND id IN ({marks})",
+                    (target, account, target, *chunk),
+                )
+                changed += cur.rowcount
+    return changed
+
+def prune_missing_emails(account: str, keep_ids: set[str]) -> int:
+    """Deletes rows for the account that are no longer in Gmail's inbox (archived/deleted there).
+
+    Only call this when the full inbox was listed; otherwise rows beyond the
+    sync window would be lost.
+    """
+    with get_db() as conn:
+        ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM emails WHERE account = ?", (account,)
+        ).fetchall()]
+        stale = [i for i in ids if i not in keep_ids]
+        if not stale:
+            return 0
+        removed = 0
+        for start in range(0, len(stale), 500):
+            chunk = stale[start:start + 500]
+            marks = ",".join("?" * len(chunk))
+            removed += conn.execute(
+                f"DELETE FROM emails WHERE id IN ({marks})", chunk
+            ).rowcount
+        # Drop read-markers whose email is gone
+        conn.execute("DELETE FROM local_reads WHERE email_id NOT IN (SELECT id FROM emails)")
+        return removed
+
+def get_feed_status() -> dict:
+    """Cheap signature of the current inbox state for change detection."""
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT
+                COALESCE(SUM(label IN ('important', 'very_important')), 0),
+                COALESCE(SUM(label = 'low_priority'), 0),
+                COUNT(*),
+                COALESCE(SUM(unread = 1), 0),
+                COALESCE(MAX(timestamp), 0)
+            FROM emails
+        """).fetchone()
+    return {
+        "important": row[0],
+        "low_priority": row[1],
+        "total": row[2],
+        "unread": row[3],
+        "max_ts": row[4],
+    }
 
 def get_email_by_id(email_id: str) -> dict | None:
     with get_db() as conn:
@@ -138,6 +203,12 @@ def get_accounts() -> list[dict]:
         """).fetchall()
         return [dict(r) for r in rows]
 
+LIST_COLUMNS = (
+    "id", "thread_id", "sender_name", "sender_email", "subject", "date_str",
+    "timestamp", "model_input", "body_text", "label", "confidence",
+    "prompt_hash", "unread", "account",
+)  # body_html deliberately excluded: massive, only needed by the reader view
+
 def fetch_emails(
     tab: str = "important",
     query: str = "",
@@ -146,7 +217,7 @@ def fetch_emails(
     limit: int = 100
 ) -> tuple[list[dict], dict]:
     with get_db() as conn:
-        base_sql = "SELECT * FROM emails WHERE 1=1"
+        base_sql = f"SELECT {', '.join(LIST_COLUMNS)} FROM emails WHERE 1=1"
         params: list = []
 
         if account:

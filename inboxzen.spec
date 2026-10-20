@@ -11,11 +11,6 @@ datas = [
     (str(project_dir / "app" / "static"), "app/static"),
 ]
 
-if (project_dir / "credentials.json").exists():
-    datas.append((str(project_dir / "credentials.json"), "."))
-if (project_dir / "credentials.json.example").exists():
-    datas.append((str(project_dir / "credentials.json.example"), "."))
-
 # Bundle native llama.cpp binaries and shared libraries from ./bin
 cuda_patterns = ("libcublas", "libggml-cuda", "libcudart", "libnvjitlink")
 binaries = []

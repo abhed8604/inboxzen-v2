@@ -38,7 +38,7 @@
       <em id="sidebar-total-count">{{ counts.all }}</em>
     </button>
 
-    <button class="nav act" hx-post="/sync" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); showToast('Syncing new Gmail messages...')">
+    <button class="nav act" hx-post="/sync" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); showToast('Syncing in background — feed updates automatically...')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 11a8 8 0 0 0-14.5-4L4 9"/>
         <path d="M4 4v5h5"/>
@@ -48,7 +48,7 @@
       Sync mails
     </button>
 
-    <button class="nav act" hx-post="/rescan" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); showToast('Re-evaluating inbox with vllm-d3-lite...')">
+    <button class="nav act" hx-post="/rescan" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); startRescanPolling(); showToast('Re-scoring the newest 100 mails…')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
         <path d="M3 3v5h5"/>
@@ -74,13 +74,15 @@
       {% for acc in accounts %}
       <div class="acct-chip {{ 'active' if selected_account == acc.account else '' }}" 
            data-account="{{ acc.account }}"
-           onclick="toggleAccountFilter('{{ acc.account }}', this)"
+           onclick="toggleAccountFilter(this.dataset.account, this)"
            title="Filter emails received by {{ acc.account }}">
         <i class="dot"></i>
         <span class="acct-text">{{ acc.account }}</span>
       </div>
       {% else %}
-      <div style="padding: 6px 12px; font-size: 11.5px; color: var(--ink3);">No accounts synced</div>
+      <button class="acct-empty" onclick="openSettingsModal('accounts')" title="Connect your first Gmail account in Settings">
+        No accounts yet — add in Settings
+      </button>
       {% endfor %}
     </div>
   </div>

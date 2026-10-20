@@ -8,7 +8,6 @@
 {% for item in emails %}
 <button class="item {{ 'vi' if item.label == 'very_important' else '' }} {{ 'on' if selected_email and selected_email.id == item.id else '' }} {{ 'unread' if item.unread else 'read' }}"
         data-id="{{ item.id }}"
-        id="item-{{ item.id }}"
         hx-get="/emails/{{ item.id }}"
         hx-target="#reader"
         hx-swap="innerHTML"

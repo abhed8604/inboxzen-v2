@@ -22,7 +22,7 @@
         </svg>
         <input id="q" placeholder="Search emails…" value="{{ search_query }}"
                hx-get="/emails"
-               hx-trigger="keyup changed delay:200ms"
+               hx-trigger="input changed delay:200ms"
                hx-target="#list"
                hx-include="#filter-form"
                oninput="document.getElementById('filter-query').value = this.value;" />
@@ -90,4 +90,7 @@
 
 <!-- Toast HUD -->
 {% include "partials/toast.html" %}
+
+<!-- Rescan progress HUD -->
+{% include "partials/rescan_progress.html" %}
 {% endblock %}
