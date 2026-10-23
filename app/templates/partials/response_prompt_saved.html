@@ -1,0 +1,10 @@
+{# Prompt-save success response: refreshed feed OOB, "Saved ✓" button OOB,
+   toast OOB, and a main-content trigger that wipes the settings modal
+   after 600ms (old handlePromptSaved timing). #}
+{% import "partials/macros.html" as m %}
+{% import "partials/email_feed.html" as ef %}
+<div hx-get="/fragments/prompt/finish" hx-trigger="load delay:600ms" hx-swap="none"></div>
+<button type="button" class="btn" id="save-prompt-btn" hx-swap-oob="true">Saved ✓</button>
+<div class="list" id="list" hx-swap-oob="innerHTML">{{ ef.feed_items(emails, open_email, unread_only) }}</div>
+{{ m.pager_nav(pager, oob=True) }}
+{{ m.toast_msg(saved_msg | default('Classification instructions saved')) }}

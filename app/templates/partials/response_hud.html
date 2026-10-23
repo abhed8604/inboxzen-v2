@@ -1,0 +1,14 @@
+{# Rescan HUD poll response / the POST /rescan reply.
+   Context: hud_hidden + label/count/fill; `feed_refresh` adds the list OOB
+   (the old done path refreshed the list when mails were re-scored); `msg`
+   adds a toast OOB. Everything is OOB — the main response is empty. #}
+{% import "partials/macros.html" as m %}
+{% import "partials/email_feed.html" as ef %}
+{% set hud_live = not (hud_hidden | default(false)) %}
+{% set hud_oob = True %}
+{% include "partials/rescan_progress.html" %}
+{% if feed_refresh %}
+<div class="list" id="list" hx-swap-oob="innerHTML">{{ ef.feed_items(emails, open_email, unread_only) }}</div>
+{{ m.pager_nav(pager, oob=True) }}
+{% endif %}
+{% if msg %}{{ m.toast_msg(msg) }}{% endif %}

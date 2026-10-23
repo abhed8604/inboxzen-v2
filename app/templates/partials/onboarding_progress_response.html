@@ -1,0 +1,14 @@
+{# Download-progress poll response: dl card self-swap + optional OOB next-btn.
+   The btn re-render restores it ("Continue →"/"Retry Download") exactly when
+   the old JS callout did. #}
+{% include "partials/onboarding_dl_card.html" %}
+{% if oob_next_label %}
+<button type="button" class="btn" id="onboarding-compute-next-btn"
+        {% if oob_next_busy %}disabled{% endif %}
+        hx-swap-oob="true"
+        {% if oob_next_label == 'Continue →' %}
+        hx-get="/fragments/onboarding/step/mail" hx-target="#ob-main" hx-swap="innerHTML"
+        {% else %}
+        hx-post="/fragments/onboarding/setup" hx-target="#ob-main" hx-swap="innerHTML" hx-indicator="this"
+        {% endif %}>{{ oob_next_label }}</button>
+{% endif %}

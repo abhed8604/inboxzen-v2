@@ -1,17 +1,12 @@
-<div style="display: none;">
-  <em id="sidebar-total-count" hx-swap-oob="true">{{ counts.all }}</em>
-  <small id="count-important" hx-swap-oob="true">{{ counts.important }}</small>
-  <small id="count-low" hx-swap-oob="true">{{ counts.low_priority }}</small>
-  <small id="count-all" hx-swap-oob="true">{{ counts.all }}</small>
-</div>
-
+{% macro feed_items(emails, open_email, unread_only=False, oob=False) %}
 {% for item in emails %}
-<button class="item {{ 'vi' if item.label == 'very_important' else '' }} {{ 'on' if selected_email and selected_email.id == item.id else '' }} {{ 'unread' if item.unread else 'read' }}"
+<button id="item-{{ item.id }}"
+        class="item {{ 'vi' if item.label == 'very_important' else '' }} {{ 'on' if open_email and open_email.id == item.id else '' }} {{ 'unread' if item.unread else 'read' }}"
         data-id="{{ item.id }}"
-        hx-get="/emails/{{ item.id }}"
-        hx-target="#reader"
-        hx-swap="innerHTML"
-        onclick="selectFeedItem(this)">
+        {% if oob %}hx-swap-oob="true"{% endif %}
+        hx-post="/emails/{{ item.id }}/open"
+        hx-target="#reader" hx-swap="innerHTML"
+        hx-include="#filter-form, #q, #reader-open">
   <div class="t">
     <span class="sender-wrap">
       {% if item.unread %}
@@ -32,3 +27,4 @@
 {% else %}
 <div class="none">{% if unread_only %}No unread emails here.{% else %}No emails here.{% endif %}</div>
 {% endfor %}
+{% endmacro %}

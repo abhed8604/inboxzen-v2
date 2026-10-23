@@ -1,0 +1,37 @@
+<div id="onboarding-step-mail">
+  <h2>Connect your email</h2>
+  <p class="sub">Connect a Gmail account to start triaging incoming emails. This step is completely optional.</p>
+
+  <div class="accounts-container" style="margin-top: 14px;">
+    <div class="setup-card">
+      <div class="setup-header">
+        <div>
+          <strong style="font-size: 13px; color: var(--ink);">OAuth Credentials</strong>
+          <div style="font-size: 11.5px; color: var(--ink3);">Google Cloud Desktop Client (<code>credentials.json</code>)</div>
+        </div>
+        <span class="status-badge {{ 'active' if has_credentials else 'warn' }}">
+          {{ 'Installed' if has_credentials else 'Missing' }}
+        </span>
+      </div>
+      <p style="font-size: 12.5px; color: var(--ink2); margin-top: 10px; line-height: 1.45;">
+        You can connect your Google account now to start syncing real emails, or skip this step to explore the app first and set up accounts anytime later in Settings.
+      </p>
+    </div>
+  </div>
+
+  <div class="modal-actions-between">
+    <button type="button" class="btn-secondary"
+            hx-post="/fragments/onboarding/finish?open_accounts=false"
+            hx-target="#modal-slot">
+      Skip for now
+    </button>
+    <button type="button" class="btn"
+            hx-post="/fragments/onboarding/finish?open_accounts=true"
+            hx-target="#modal-slot">
+      {{ 'Finish & View Accounts Guide →' if not has_credentials else 'Finish Setup →' }}
+    </button>
+  </div>
+  <div style="margin-top: 10px; font-size: 12px; color: var(--ink3); text-align: left;">
+    You can add and manage connected email accounts anytime from <strong>Settings &gt; Accounts</strong>.
+  </div>
+</div>

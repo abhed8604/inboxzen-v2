@@ -1,0 +1,67 @@
+<div id="pane-model" class="settings-pane" {% if pane_oob | default(false) %}hx-swap-oob="true"{% endif %}>
+  <h2>Engine</h2>
+  <p class="sub">A small language model running entirely on this machine — mail never leaves it.</p>
+
+  {% include "partials/engine_block.html" %}
+
+  <span class="cap" style="margin: 18px 0 8px; display: block;">Compute device</span>
+  <div class="compute-options" style="margin-top: 0;">
+    <div class="compute-card {{ 'selected' if compute_device == 'cpu' else '' }}" id="settings-card-cpu"
+         hx-post="/fragments/compute?device=cpu" hx-target="#modal-slot" hx-swap="innerHTML" hx-indicator="this">
+      <div class="compute-radio"></div>
+      <div class="compute-info">
+        <div class="compute-header">
+          <span class="compute-title">CPU</span>
+          <span class="compute-badge ready">Ready out of the box</span>
+        </div>
+        <p class="compute-desc">Runs on standard processor threads. No downloads or drivers needed.</p>
+      </div>
+    </div>
+
+    <div class="compute-card {{ 'selected' if compute_device == 'gpu' else '' }}" id="settings-card-gpu"
+         hx-post="/fragments/compute?device=gpu" hx-target="#modal-slot" hx-swap="innerHTML" hx-indicator="this">
+      <div class="compute-radio"></div>
+      <div class="compute-info">
+        <div class="compute-header">
+          <span class="compute-title">NVIDIA GPU</span>
+          <span class="compute-badge {{ 'ready' if cuda_installed else 'download' }}" id="settings-gpu-badge">
+            {{ 'Ready' if cuda_installed else '~850 MB download' }}
+          </span>
+        </div>
+        <p class="compute-desc">
+          {% if has_nvidia %}
+          Faster triage using your <strong>{{ gpu_name }}</strong>.
+          {% else %}
+          Faster triage using NVIDIA GeForce / RTX graphics cards.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {% include "partials/cuda_box.html" %}
+
+  <span class="cap" style="margin: 18px 0 8px; display: block;">Runtime</span>
+  <div class="kv">
+    <div>
+      <span>Model</span>
+      <code>vllm-d3-lite-GGUF · Q8_0</code>
+    </div>
+    <div>
+      <span>Compute mode</span>
+      <code id="settings-active-compute-label">
+        {%- if effective_device == 'gpu' -%}
+          NVIDIA GPU ({{ gpu_name or 'CUDA' }})
+        {%- elif compute_device == 'gpu' -%}
+          NVIDIA GPU selected — CUDA runtime missing, running on CPU
+        {%- else -%}
+          CPU · multi-threaded
+        {%- endif -%}
+      </code>
+    </div>
+    <div>
+      <span>Context window</span>
+      <code>4,096 tokens</code>
+    </div>
+  </div>
+</div>

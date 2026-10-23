@@ -1,0 +1,20 @@
+<div id="pane-look" class="settings-pane" {% if look_oob | default(false) %}hx-swap-oob="true"{% endif %}>
+  <h2>Theme</h2>
+  <p class="sub">Select your preferred color theme.</p>
+  <div class="themes">
+    <button class="th {{ 'on' if current_theme == 'light' else '' }}" id="th-light" onclick="setTheme('light')" type="button">
+      <div style="background: #f7f5ed; border: 1px solid #dcdccd;">
+        <i style="background: #3a7d6c; width: 55%;"></i>
+        <i style="background: #d9d9c8; width: 80%;"></i>
+      </div>
+      Light
+    </button>
+    <button class="th {{ 'on' if current_theme == 'dark' else '' }}" id="th-dark" onclick="setTheme('dark')" type="button">
+      <div style="background: #111b1d; border: 1px solid #2a3d40;">
+        <i style="background: #6fc2b5; width: 55%;"></i>
+        <i style="background: #2c4144; width: 80%;"></i>
+      </div>
+      Dark
+    </button>
+  </div>
+</div>

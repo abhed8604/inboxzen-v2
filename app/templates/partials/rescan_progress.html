@@ -1,8 +1,22 @@
-<div class="rescan-hud" id="rescan-hud" hidden>
+{# Rescan HUD — the single copy of this markup. `hud_live` makes it poll the
+   progress endpoint, otherwise it stays hidden. #}
+{% set live = hud_live | default(false) %}
+<div class="rescan-hud" id="rescan-hud"
+     {% if hud_oob | default(false) %}hx-swap-oob="true"{% endif %}
+     {% if live %}
+     hx-get="/fragments/rescan-progress" hx-trigger="every 1s" hx-swap="outerHTML"
+     hx-include="#filter-form, #q, #reader-open, #page-state"
+     {% else %}
+     hidden
+     {% endif %}>
   <div class="rescan-info">
     <span class="rescan-dot"></span>
-    <span id="rescan-label">Rescan</span>
-    <span id="rescan-count"></span>
+    <span id="rescan-label">{{ hud_label | default('Rescan') }}</span>
+    <span class="rescan-count" id="rescan-count">{{ hud_count | default('') }}</span>
+    {% if live and hud_cancel | default(false) %}
+    <button class="rescan-cancel" hx-post="/rescan/cancel" hx-target="#swap-root"
+            hx-include="#filter-form, #q">Cancel</button>
+    {% endif %}
   </div>
-  <div class="rescan-track"><div class="rescan-fill" id="rescan-fill"></div></div>
+  <div class="rescan-track"><div class="rescan-fill" id="rescan-fill" style="width: {{ hud_fill | default(0) }}%;"></div></div>
 </div>

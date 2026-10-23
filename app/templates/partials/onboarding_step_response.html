@@ -1,0 +1,9 @@
+{# Onboarding main-step response (target #ob-main): step body; the side nav
+   is OOB only when the step itself changes. #}
+{% import "partials/macros.html" as m %}
+{% if side_step %}{{ m.onboarding_side(side_step, oob=True) }}{% endif %}
+{% if render_step == 'mail' %}
+{% include "partials/onboarding_step_mail.html" %}
+{% else %}
+{% include "partials/onboarding_step_compute.html" %}
+{% endif %}

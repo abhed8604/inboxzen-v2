@@ -1,0 +1,9 @@
+{% if active_pane == 'rules' %}
+  {% include "partials/settings_pane_rules.html" %}
+{% elif active_pane == 'accounts' %}
+  {% with view = (accounts_view or 'main') %}{% include "partials/settings_pane_accounts.html" %}{% endwith %}
+{% elif active_pane == 'look' %}
+  {% include "partials/settings_pane_look.html" %}
+{% else %}
+  {% include "partials/settings_pane_model.html" %}
+{% endif %}

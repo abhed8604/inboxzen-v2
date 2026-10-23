@@ -1,0 +1,20 @@
+{# Engine status block inside the settings Engine pane. Self-polls fast while a
+   model download is in flight; replaces itself with fresh state. #}
+<div class="mstat" id="model-status-box"
+     hx-get="/fragments/engine-status?scope=modal"
+     hx-trigger="every {{ '2s' if status == 'downloading' else '15s' }}" hx-swap="outerHTML">
+  <i class="dot" id="model-status-dot" style="background: {{ engine_dot }}{% if engine_pulse %}; animation: pulse 1.5s infinite{% endif %};"></i>
+  <div class="mstat-body">
+    <strong id="model-status-text">{{ engine_text }}</strong>
+    <small id="model-status-sub">{{ engine_sub }}</small>
+  </div>
+  {% if not model_downloaded %}
+  <button type="button" class="btn" id="model-download-btn"
+          {% if status == 'downloading' %}disabled{% endif %}
+          hx-post="/fragments/model/download" hx-target="#modal-slot" hx-swap="innerHTML" hx-indicator="this">
+    {{ 'Downloading…' if status == 'downloading' else ('Retry download' if status == 'error' else 'Download model') }}
+  </button>
+  {% else %}
+  <code class="mstat-dev">Q8_0 · 1.08 GB</code>
+  {% endif %}
+</div>

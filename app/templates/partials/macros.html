@@ -1,0 +1,133 @@
+{# Shared fragment macros. Every server response assembles these; elements
+   carrying hx-swap-oob are taken out of the response and swapped into their
+   matching ids. The `oob` flag toggles that marker for elements also rendered
+   inline at first page load. #}
+
+{% macro tabs_seg(current_tab, counts, oob=False) %}
+<div class="seg" id="tabs" {% if oob %}hx-swap-oob="true"{% endif %}>
+  <button class="{{ 'on' if current_tab == 'important' else '' }}" data-t="important"
+          hx-get="/emails?tab=important" hx-params="not tab"
+          hx-target="#swap-root" hx-include="#filter-form, #q">
+    Important <small id="count-important">{{ counts.important }}</small>
+  </button>
+  <button class="{{ 'on' if current_tab == 'low_priority' else '' }}" data-t="low_priority"
+          hx-get="/emails?tab=low_priority" hx-params="not tab"
+          hx-target="#swap-root" hx-include="#filter-form, #q">
+    Low Priority <small id="count-low">{{ counts.low_priority }}</small>
+  </button>
+  <button class="{{ 'on' if current_tab == 'all' else '' }}" data-t="all"
+          hx-get="/emails?tab=all" hx-params="not tab"
+          hx-target="#swap-root" hx-include="#filter-form, #q">
+    All <small id="count-all">{{ counts.all }}</small>
+  </button>
+</div>
+{% endmacro %}
+
+{% macro unread_toggle(unread_only, oob=False) %}
+<button class="sw" id="unread" type="button"
+        hx-get="/emails?unread={{ '0' if unread_only else '1' }}" hx-params="not unread"
+        hx-target="#swap-root" hx-include="#filter-form, #q"
+        {% if oob %}hx-swap-oob="true"{% endif %}>
+  <span>Unread</span>
+  <i class="tg {{ 'on' if unread_only else '' }}" id="unread-tg"></i>
+</button>
+{% endmacro %}
+
+{% macro pager_nav(pager, oob=False) %}
+<nav class="pager" id="pager" aria-label="Email pages" {% if oob %}hx-swap-oob="true"{% endif %}>
+  <span class="pg-info">
+    {% if pager.total %}{{ pager.start }}–{{ pager.end }} of {{ pager.total }}{% else %}No mail{% endif %}
+  </span>
+  {% if pager.pages > 1 %}
+  <div class="pg-buttons">
+    <button class="pg-step" {% if pager.page <= 1 %}disabled{% endif %}
+            hx-get="/emails?page={{ pager.page - 1 }}" hx-target="#swap-root"
+            hx-include="#filter-form, #q, #reader-open" title="Previous page">‹</button>
+    {% for number in pager.page_numbers %}
+      {% if number is none %}
+      <span class="pg-gap">…</span>
+      {% else %}
+      <button class="pg {{ 'on' if number == pager.page else '' }}"
+              hx-get="/emails?page={{ number }}" hx-target="#swap-root"
+              hx-include="#filter-form, #q, #reader-open">{{ number }}</button>
+      {% endif %}
+    {% endfor %}
+    <button class="pg-step" {% if pager.page >= pager.pages %}disabled{% endif %}
+            hx-get="/emails?page={{ pager.page + 1 }}" hx-target="#swap-root"
+            hx-include="#filter-form, #q, #reader-open" title="Next page">›</button>
+  </div>
+  {% endif %}
+  <input type="hidden" id="page-state" name="page" value="{{ pager.page }}">
+</nav>
+{% endmacro %}
+
+{% macro acct_list(accounts, selected_account, oob=False) %}
+<div class="acct-list" id="sidebar-acct-list" {% if oob %}hx-swap-oob="true"{% endif %}>
+  {% for acc in accounts %}
+  <div class="acct-chip {{ 'active' if selected_account == acc.account else '' }}"
+       data-account="{{ acc.account }}"
+       hx-get="/emails?{% if selected_account == acc.account %}account={% else %}account={{ acc.account | urlencode }}{% endif %}"
+       hx-params="not account"
+       hx-target="#swap-root" hx-include="#filter-form, #q"
+       title="Filter emails received by {{ acc.account }}">
+    <i class="dot"></i>
+    <span class="acct-text">{{ acc.account }}</span>
+  </div>
+  {% else %}
+  <button class="acct-empty" hx-get="/fragments/settings?pane=accounts" hx-target="#settings-root" hx-swap="innerHTML"
+          title="Connect your first Gmail account in Settings">
+    No accounts yet — add in Settings
+  </button>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro counts_oob(counts) %}
+<div style="display: none;">
+  <em id="sidebar-total-count" hx-swap-oob="true">{{ counts.unread }}</em>
+  <small id="count-important" hx-swap-oob="true">{{ counts.important }}</small>
+  <small id="count-low" hx-swap-oob="true">{{ counts.low_priority }}</small>
+  <small id="count-all" hx-swap-oob="true">{{ counts.all }}</small>
+</div>
+{% endmacro %}
+
+{% macro mirrors_oob(current_tab, unread_only, selected_account) %}
+<div style="display: none;">
+  <input type="hidden" name="tab" id="filter-tab" value="{{ current_tab }}" hx-swap-oob="true">
+  <input type="hidden" name="unread" id="filter-unread" value="{{ '1' if unread_only else '0' }}" hx-swap-oob="true">
+  <input type="hidden" name="account" id="filter-account" value="{{ selected_account or '' }}" hx-swap-oob="true">
+</div>
+{% endmacro %}
+
+{% macro toast_msg(message) %}
+<div class="toast-hud show" id="app-toast"
+     hx-get="/fragments/toast-off" hx-trigger="load delay:2800ms" hx-swap="outerHTML"
+     hx-swap-oob="true">
+  <span class="dot"></span>
+  <span id="toast-text">{{ message }}</span>
+</div>
+{% endmacro %}
+
+{% macro settings_side(active_pane, oob=False) %}
+<div class="mside" id="settings-side" {% if oob %}hx-swap-oob="true"{% endif %}>
+  <h3>Settings</h3>
+  <button class="nav {{ 'on' if active_pane == 'rules' else '' }}" id="tab-btn-rules"
+          hx-get="/fragments/settings/pane/rules" hx-target="#mmain" hx-swap="innerHTML">Triage rules</button>
+  <button class="nav {{ 'on' if active_pane == 'accounts' else '' }}" id="tab-btn-accounts"
+          hx-get="/fragments/settings/pane/accounts" hx-target="#mmain" hx-swap="innerHTML">Accounts</button>
+  <button class="nav {{ 'on' if active_pane == 'look' else '' }}" id="tab-btn-look"
+          hx-get="/fragments/settings/pane/look" hx-target="#mmain" hx-swap="innerHTML">Appearance</button>
+  <button class="nav {{ 'on' if active_pane == 'model' else '' }}" id="tab-btn-model"
+          hx-get="/fragments/settings/pane/model" hx-target="#mmain" hx-swap="innerHTML">Engine</button>
+</div>
+{% endmacro %}
+
+{% macro onboarding_side(on_step, oob=False) %}
+<div class="mside" id="onboarding-side" {% if oob %}hx-swap-oob="true"{% endif %}>
+  <h3>Welcome</h3>
+  <button class="nav {{ 'on' if on_step == 'compute' else '' }}" id="onboarding-tab-compute" type="button"
+          hx-get="/fragments/onboarding/step/compute" hx-target="#ob-main" hx-swap="innerHTML">1. Compute engine</button>
+  <button class="nav {{ 'on' if on_step == 'mail' else '' }}" id="onboarding-tab-mail" type="button"
+          hx-get="/fragments/onboarding/step/mail" hx-target="#ob-main" hx-swap="innerHTML">2. Email account</button>
+</div>
+{% endmacro %}

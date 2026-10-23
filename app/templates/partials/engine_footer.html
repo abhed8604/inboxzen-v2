@@ -1,0 +1,10 @@
+{# Engine status footer cluster (sidebar). Self-polling: the response replaces
+   this element and keeps the polling attrs, mirroring the old 15s JS poller.
+   The click-opens-Engine-pane behavior matches the original onclick. #}
+<div class="engine-indicator"
+     hx-get="/fragments/engine-status" hx-trigger="every 15s" hx-swap="outerHTML"
+     onclick="openEngineSettings()"
+     title="Engine status: {{ engine_title }}">
+  <i class="dot" id="vram-dot" style="background: {{ engine_dot }}{% if engine_pulse %}; animation: pulse 1.5s infinite{% endif %};"></i>
+  <span class="engine-name" id="vram-footer-label">{{ engine_label }}</span>
+</div>

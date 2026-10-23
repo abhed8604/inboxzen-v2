@@ -1,0 +1,26 @@
+<div id="pane-rules" class="settings-pane">
+  <h2>Classification instructions</h2>
+  <p class="sub">Markdown rules guiding how vllm-d3-lite prioritizes and routes incoming mail.</p>
+
+  <form hx-post="/settings/prompt"
+        hx-target="#modal-slot"
+        hx-include="#filter-form, #reader-open, #page-state">
+    <div class="rules-editor-wrapper">
+      <div class="editor-gutter" id="prompt-gutter" aria-hidden="true"></div>
+      <textarea id="triage-markdown-input"
+                name="triage_prompt"
+                spellcheck="false"
+                placeholder="Write classification rules in Markdown..."
+                oninput="updatePromptLineNumbers()"
+                onscroll="syncPromptScroll()">{{ triage_prompt }}</textarea>
+    </div>
+
+    <div class="rules-footer">
+      <p class="sub" style="margin: 0; font-size: 12.5px;">
+        Saving re-evaluates inbox messages with vllm-d3-lite in the background.
+      </p>
+      <button class="btn" type="submit" id="save-prompt-btn">Save instructions</button>
+    </div>
+    <p class="sub" style="margin: 10px 0 0; font-size: 12px; color: var(--ink3);">Up to 2,400 characters — the engine uses every rule you save.</p>
+  </form>
+</div>

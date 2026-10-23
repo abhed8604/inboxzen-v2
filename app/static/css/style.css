@@ -215,7 +215,7 @@ button {
 /* 3-Column Floating Panel Grid */
 .app {
   display: grid;
-  grid-template-columns: 268px 384px 1fr;
+  grid-template-columns: 268px 410px 1fr;
   gap: 12px;
   height: 100vh;
   padding: 12px;
@@ -316,7 +316,7 @@ nav {
   border-radius: 99px;
 }
 
-.spin svg {
+.spin svg, .htmx-request svg {
   animation: sp .9s linear;
 }
 
@@ -484,6 +484,7 @@ nav {
 .lhead {
   padding: 16px 16px 12px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   border-bottom: 1px solid var(--line);
 }
@@ -507,6 +508,8 @@ nav {
 
 .search input {
   flex: 1;
+  min-width: 0;
+  align-self: stretch;
   background: none;
   border: 0;
   outline: 0;
@@ -518,11 +521,43 @@ nav {
   color: var(--ink3);
 }
 
+.search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-clear {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink3);
+}
+
+.search-clear:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.search-clear[hidden] {
+  display: none;
+}
+
+.search.htmx-request {
+  border-color: var(--accent);
+}
+
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.lhead .row {
+  flex-wrap: wrap;
 }
 
 .seg {
@@ -659,6 +694,55 @@ nav {
 .list::-webkit-resizer {
   background: transparent !important;
   display: none !important;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: none;
+  padding: 8px 16px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink3);
+  font-size: 11.5px;
+}
+
+.pg-buttons {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pg, .pg-step {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  color: var(--ink2);
+  font: 500 11.5px var(--sans);
+  transition: background .15s, color .15s;
+}
+
+.pg:hover, .pg-step:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.pg.on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pg-step:disabled {
+  opacity: .3;
+  cursor: default;
+}
+
+.pg-gap {
+  padding: 0 2px;
+  color: var(--ink3);
 }
 
 .item {
@@ -843,11 +927,23 @@ nav {
   border-bottom: 1px solid var(--line);
 }
 
+.rhead > .row {
+  flex-wrap: wrap;
+}
+
 .rhead h1 {
   font: 400 25px/1.2 var(--serif);
   letter-spacing: .1px;
   max-width: 760px;
+  flex: 1 1 300px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--ink);
+}
+
+.rhead .row > .row {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .meta {
@@ -931,12 +1027,17 @@ nav {
   background: #fefdf8;
 }
 
+:root[data-theme="dark"] .paper.html-mail {
+  background: #f3f0e8;
+}
+
 .paper iframe {
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
   background: transparent;
+  color-scheme: light;
 }
 
 .paper pre {
@@ -993,6 +1094,39 @@ nav {
 
 @keyframes pop {
   from { transform: scale(.96); opacity: 0; }
+}
+
+.prompt-scrim {
+  z-index: 120;
+}
+
+.prompt-modal {
+  width: min(430px, calc(100vw - 40px));
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .5);
+  padding: 26px;
+  animation: pop .22s ease;
+}
+
+.prompt-modal h2 {
+  font: 400 25px/1.1 var(--serif);
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.prompt-modal p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
 }
 
 .mside {
@@ -1202,6 +1336,22 @@ nav {
   display: grid;
   place-items: center;
   flex: none;
+}
+
+.acct-remove-btn {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink3);
+  font: 500 11.5px var(--sans);
+  cursor: pointer;
+}
+
+.acct-remove-btn:hover {
+  color: var(--vi, #b5532f);
+  border-color: var(--vi, #b5532f);
 }
 
 .acct-info {
@@ -1512,11 +1662,30 @@ nav {
   font-weight: 500;
 }
 
-#rescan-count {
+.rescan-count {
   margin-left: auto;
   color: var(--ink3);
   font-family: var(--mono);
   font-size: 11.5px;
+}
+
+.rescan-cancel {
+  background: transparent;
+  color: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+
+.rescan-cancel:hover {
+  background: var(--hover);
+  border-color: var(--ink3);
+  color: var(--ink);
 }
 
 .rescan-dot {
@@ -1534,8 +1703,8 @@ nav {
 }
 
 .rescan-track {
-  height: 4px;
-  border-radius: 3px;
+  height: 6px;
+  border-radius: 999px;
   background: var(--hover);
   overflow: hidden;
 }
@@ -1543,9 +1712,9 @@ nav {
 .rescan-fill {
   height: 100%;
   width: 0%;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--accent);
-  transition: width .4s ease;
+  transition: width .3s ease;
 }
 
 ::-webkit-scrollbar {
@@ -1741,17 +1910,17 @@ nav {
 .progress-container {
   margin-top: 12px;
   background: var(--hover);
-  border-radius: 8px;
+  border-radius: 999px;
   overflow: hidden;
-  height: 8px;
-  border: 1px solid var(--line);
+  height: 6px;
 }
 
 .progress-bar {
   height: 100%;
   background: var(--accent);
   width: 0%;
-  transition: width .2s ease;
+  border-radius: 999px;
+  transition: width .3s ease;
 }
 
 .modal-actions {
@@ -1808,3 +1977,35 @@ nav {
 }
 
 
+
+@media (max-width: 1100px) {
+  .app {
+    grid-template-columns: 220px 410px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 960px) {
+  .app {
+    display: flex;
+    height: 100dvh;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .app::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app > .pane {
+    flex: 0 0 calc(100vw - 24px);
+    scroll-snap-align: start;
+  }
+
+  .app > aside { order: 3; }
+  .app > section { order: 1; }
+  .app > #reader { order: 2; }
+
+}

@@ -1,0 +1,60 @@
+{% import "partials/macros.html" as m %}
+<div id="onboarding-step-compute">
+  <h2>Choose compute engine</h2>
+  <p class="sub">InboxZen runs a local LLM directly on your machine. Select how you want to run triage inference:</p>
+
+  <div class="compute-options">
+    <div class="compute-card {{ 'selected' if onboard_device == 'cpu' else '' }}" id="card-compute-cpu"
+         hx-get="/fragments/onboarding/select?device=cpu" hx-target="#ob-main" hx-swap="innerHTML">
+      <div class="compute-radio"></div>
+      <div class="compute-info">
+        <div class="compute-header">
+          <span class="compute-title">CPU Only (Default)</span>
+          <span class="compute-badge ready">0 MB download</span>
+        </div>
+        <p class="compute-desc">
+          Uses standard processor threads. Works instantly out-of-the-box on any machine without extra downloads or drivers.
+        </p>
+      </div>
+    </div>
+
+    <div class="compute-card {{ 'selected' if onboard_device == 'gpu' else '' }}" id="card-compute-gpu"
+         hx-get="/fragments/onboarding/select?device=gpu" hx-target="#ob-main" hx-swap="innerHTML">
+      <div class="compute-radio"></div>
+      <div class="compute-info">
+        <div class="compute-header">
+          <span class="compute-title">NVIDIA GPU (CUDA Acceleration)</span>
+          <span class="compute-badge download" id="onboarding-gpu-badge">
+            {{ 'Installed' if cuda_installed else '~850 MB download' }}
+          </span>
+        </div>
+        <p class="compute-desc">
+          {% if has_nvidia %}
+          Accelerates inference using your <strong>{{ gpu_name }}</strong>.
+          {% else %}
+          Accelerates inference using NVIDIA GeForce / RTX graphics cards.
+          {% endif %}
+          {% if not cuda_installed %}
+          Downloads CUDA runtime libraries (~850 MB) on first setup.
+          {% else %}
+          CUDA runtime libraries are installed and ready.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {% include "partials/onboarding_dl_card.html" %}
+
+  <div class="modal-actions" style="margin-top: 24px;">
+    <button type="button" class="btn" id="onboarding-compute-next-btn"
+            {% if onboard_busy %}disabled{% endif %}
+            {% if next_label | default('') == 'Continue →' %}
+            hx-get="/fragments/onboarding/step/mail" hx-target="#ob-main" hx-swap="innerHTML"
+            {% else %}
+            hx-post="/fragments/onboarding/setup" hx-target="#ob-main" hx-swap="innerHTML" hx-indicator="this"
+            {% endif %}>
+      {{ next_label | default('Continue →' if model_downloaded else 'Download Model & Continue →') }}
+    </button>
+  </div>
+</div>

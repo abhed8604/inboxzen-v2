@@ -1,9 +1,14 @@
 {% if email %}
 <div class="rhead" id="rhead" data-email-id="{{ email.id }}">
+  <div id="reader-open" style="display:none;">
+    <input type="hidden" name="reader_id" value="{{ email.id }}">
+    <input type="hidden" name="reader_state" value="{{ email.label or '' }}|{{ '' if email.confidence is none else email.confidence }}">
+  </div>
   <div class="row">
     <h1>{{ email.subject }}</h1>
     <div class="row" style="gap: 8px;">
-      <button class="gm-link" id="scan-btn" hx-post="/emails/{{ email.id }}/scan" hx-target="#reader" hx-swap="innerHTML" title="Re-run the model on this email" onclick="spinButton(this)">
+      <button class="gm-link" id="scan-btn" hx-post="/emails/{{ email.id }}/scan" hx-target="#reader" hx-swap="innerHTML"
+              title="Re-run the model on this email" hx-indicator="this">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>
           <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>
@@ -42,10 +47,10 @@
   <div class="triage {{ tcls }}">
     <span class="tag {{ tcls }}">{{ email.label_display }}</span>
     {% if email.label %}
-    <div class="bar">
+    <div class="bar" title="Model probability for this label. It does not mean the mail is less important.">
       <i style="width: {{ (email.confidence or 0) * 100 | round(0) | int }}%;"></i>
     </div>
-    <span>{{ ((email.confidence or 0) * 100) | round(0) | int }}% confidence</span>
+    <span title="The local model's probability that this category is correct — not how important the mail is.">{{ ((email.confidence or 0) * 100) | round(0) | int }}% model confidence</span>
     {% else %}
     <span>Waiting for the engine to classify this email…</span>
     {% endif %}
@@ -53,14 +58,14 @@
 </div>
 
 <div class="rbody">
-  <div class="paper" id="paper">
+  <div class="paper{% if email.body_html and email.body_html | length > 0 %} html-mail{% endif %}" id="paper">
     {% if email.body_html and email.body_html | length > 0 %}
       <iframe id="reader-iframe"
-              sandbox="allow-same-origin allow-popups"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
               referrerpolicy="no-referrer"
               allowtransparency="true"
               onload="syncIframeTheme()"
-              srcdoc="<style>html{background:transparent;}body{margin:0;padding:24px;background:transparent;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;color:#1c2826;}img{max-width:100%;height:auto;}:root[data-theme='dark']{color-scheme:dark;}:root[data-theme='dark'] body{color:#e2e8f0;}:root[data-theme='dark'] div,:root[data-theme='dark'] p,:root[data-theme='dark'] span,:root[data-theme='dark'] td,:root[data-theme='dark'] th{color:#cbd5e1 !important;}:root[data-theme='dark'] h1,:root[data-theme='dark'] h2,:root[data-theme='dark'] h3,:root[data-theme='dark'] strong,:root[data-theme='dark'] b{color:#f8fafc !important;}:root[data-theme='dark'] small{color:#94a3b8 !important;}:root[data-theme='dark'] h1[style*='color: #d93025'],:root[data-theme='dark'] h1[style*='color:#d93025']{color:#f87171 !important;}:root[data-theme='dark'] div[style*='background: #f8f9fa'],:root[data-theme='dark'] div[style*='background:#f8f9fa'],:root[data-theme='dark'] div[style*='background: #ffffff'],:root[data-theme='dark'] div[style*='background:#ffffff']{background:#152226 !important;border-color:rgba(255,255,255,0.12) !important;}:root[data-theme='dark'] div[style*='background: #ffebe9'],:root[data-theme='dark'] div[style*='background:#ffebe9']{background:#3e1b1e !important;color:#fca5a5 !important;}:root[data-theme='dark'] div[style*='background: #f0f8ff'],:root[data-theme='dark'] div[style*='background:#f0f8ff']{background:#0e2938 !important;border-color:#049fd9 !important;}:root[data-theme='dark'] td[style*='color: #5f6368']{color:#94a3b8 !important;}:root[data-theme='dark'] div[style*='border-bottom'],:root[data-theme='dark'] div[style*='border-top'],:root[data-theme='dark'] div[style*='border: 1px solid'],:root[data-theme='dark'] table,:root[data-theme='dark'] hr{border-color:rgba(255,255,255,0.12) !important;}:root[data-theme='dark'] table,:root[data-theme='dark'] tr,:root[data-theme='dark'] td,:root[data-theme='dark'] th{background:transparent !important;}:root[data-theme='dark'] [style*='background: white'],:root[data-theme='dark'] [style*='background:white'],:root[data-theme='dark'] [style*='background: #fff'],:root[data-theme='dark'] [style*='background:#fff'],:root[data-theme='dark'] [style*='background-color: white'],:root[data-theme='dark'] [style*='background-color:white'],:root[data-theme='dark'] [style*='background-color: #fff'],:root[data-theme='dark'] [style*='background-color:#fff'],:root[data-theme='dark'] [style*='background-color: rgb(255'],:root[data-theme='dark'] [style*='background-color:rgb(255']{background:#152226 !important;border-color:rgba(255,255,255,0.12) !important;}:root[data-theme='dark'] a{color:#049fd9 !important;}</style>{{ email.body_html | e }}"></iframe>
+              srcdoc="<meta http-equiv='Content-Security-Policy' content=&quot;default-src 'none'; img-src data:; style-src 'unsafe-inline';&quot;><style>html{background:transparent;}body{margin:0;padding:24px;background:transparent;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;color:#1c2826;}img{max-width:100%;height:auto;}img:not([src^='data:']){display:none !important;}:root[data-theme='dark']{color-scheme:dark;}:root[data-theme='dark'] body{color:#e2e8f0;}:root[data-theme='dark'] div,:root[data-theme='dark'] p,:root[data-theme='dark'] span,:root[data-theme='dark'] td,:root[data-theme='dark'] th{color:#cbd5e1 !important;}:root[data-theme='dark'] h1,:root[data-theme='dark'] h2,:root[data-theme='dark'] h3,:root[data-theme='dark'] strong,:root[data-theme='dark'] b{color:#f8fafc !important;}:root[data-theme='dark'] small{color:#94a3b8 !important;}:root[data-theme='dark'] h1[style*='color: #d93025'],:root[data-theme='dark'] h1[style*='color:#d93025']{color:#f87171 !important;}:root[data-theme='dark'] div[style*='background: #f8f9fa'],:root[data-theme='dark'] div[style*='background:#f8f9fa'],:root[data-theme='dark'] div[style*='background: #ffffff'],:root[data-theme='dark'] div[style*='background:#ffffff']{background:#152226 !important;border-color:rgba(255,255,255,0.12) !important;}:root[data-theme='dark'] div[style*='background: #ffebe9'],:root[data-theme='dark'] div[style*='background:#ffebe9']{background:#3e1b1e !important;color:#fca5a5 !important;}:root[data-theme='dark'] div[style*='background: #f0f8ff'],:root[data-theme='dark'] div[style*='background:#f0f8ff']{background:#0e2938 !important;border-color:#049fd9 !important;}:root[data-theme='dark'] td[style*='color: #5f6368']{color:#94a3b8 !important;}:root[data-theme='dark'] div[style*='border-bottom'],:root[data-theme='dark'] div[style*='border-top'],:root[data-theme='dark'] div[style*='border: 1px solid'],:root[data-theme='dark'] table,:root[data-theme='dark'] hr{border-color:rgba(255,255,255,0.12) !important;}:root[data-theme='dark'] table,:root[data-theme='dark'] tr,:root[data-theme='dark'] td,:root[data-theme='dark'] th{background:transparent !important;}:root[data-theme='dark'] [style*='background: white'],:root[data-theme='dark'] [style*='background:white'],:root[data-theme='dark'] [style*='background: #fff'],:root[data-theme='dark'] [style*='background:#fff'],:root[data-theme='dark'] [style*='background-color: white'],:root[data-theme='dark'] [style*='background-color:white'],:root[data-theme='dark'] [style*='background-color: #fff'],:root[data-theme='dark'] [style*='background-color:#fff'],:root[data-theme='dark'] [style*='background-color: rgb(255'],:root[data-theme='dark'] [style*='background-color:rgb(255']{background:#152226 !important;border-color:rgba(255,255,255,0.12) !important;}:root[data-theme='dark'] a{color:#049fd9 !important;}</style>{{ email.body_html | e }}"></iframe>
       <pre id="reader-pre" style="display: none;">{{ email.body_text }}</pre>
     {% else %}
       <pre id="reader-pre">{{ email.body_text }}</pre>

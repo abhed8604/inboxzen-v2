@@ -2,6 +2,7 @@
 InboxZen — Desktop Application Launcher
 Runs FastAPI with Uvicorn in a background thread and opens a native PyWebview window.
 """
+import fcntl
 import socket
 import sys
 import threading
@@ -9,6 +10,7 @@ import time
 import urllib.request
 import uvicorn
 import webview
+from app.config import DATA_DIR, SESSION_TOKEN
 from app.main import app
 
 def find_free_port(start_port: int = 8000) -> int:
@@ -22,23 +24,36 @@ def find_free_port(start_port: int = 8000) -> int:
             continue
     return start_port
 
-def wait_for_server(url: str, timeout: float = 10.0) -> bool:
-    """Polls until the server is responding."""
+def wait_for_server(url: str, token: str, timeout: float = 10.0) -> bool:
+    """Polls until the server is responding (with the session token)."""
     start = time.time()
+    check_url = f"{url}/api/engine/status?token={token}"
     while time.time() - start < timeout:
         try:
-            with urllib.request.urlopen(f"{url}/api/engine/status", timeout=0.5) as response:
+            with urllib.request.urlopen(check_url, timeout=0.5) as response:
                 if response.status == 200:
                     return True
         except Exception:
             time.sleep(0.1)
     return False
 
+def acquire_single_instance_lock():
+    """Keeps one desktop instance; otherwise two windows fight over the engine."""
+    lock_file = open(DATA_DIR / "inboxzen.lock", "w")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("InboxZen is already running.", file=sys.stderr)
+        sys.exit(1)
+    return lock_file
+
 def main():
     headless = "--headless-check" in sys.argv
+    _lock = None if headless else acquire_single_instance_lock()
 
     port = find_free_port(8000)
     server_url = f"http://127.0.0.1:{port}"
+    browser_url = f"{server_url}/?token={SESSION_TOKEN}"
 
     config = uvicorn.Config(
         app,
@@ -51,7 +66,7 @@ def main():
     server_thread = threading.Thread(target=server.run, daemon=True)
     server_thread.start()
 
-    if not wait_for_server(server_url, timeout=12.0):
+    if not wait_for_server(server_url, SESSION_TOKEN, timeout=12.0):
         server.should_exit = True
         server_thread.join(timeout=2.0)
         print("Failed to start internal server.", file=sys.stderr)
@@ -66,7 +81,7 @@ def main():
     # Create native desktop window
     window = webview.create_window(
         title="InboxZen",
-        url=server_url,
+        url=browser_url,
         width=1280,
         height=820,
         min_size=(960, 600),

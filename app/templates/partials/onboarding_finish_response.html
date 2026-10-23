@@ -1,0 +1,11 @@
+{# Onboarding finish reply: OOB hides the scrim, toast, and on open_accounts
+   ALSO renders the settings modal straight into Accounts + the OAuth guide
+   (old JS openSettingsModal('accounts') + showAccountsInstructions()). #}
+{% import "partials/macros.html" as m %}
+<div class="scrim" id="onboarding-scrim" hx-swap-oob="true"></div>
+<div style="display:none;">{{ m.toast_msg(msg) }}</div>
+{% if open_accounts %}
+<div id="settings-root" hx-swap-oob="true">
+  {% include "partials/settings_modal.html" %}
+</div>
+{% endif %}

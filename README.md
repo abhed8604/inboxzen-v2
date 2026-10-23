@@ -6,10 +6,11 @@ InboxZen is a local, private email triage client and reader powered by an on-dev
 
 ## Features
 
-- **Local LLM Triage**: Uses `ggml-org/vllm-d3-lite-GGUF` via `llama-server`, running fully on-device (CPU or NVIDIA GPU). The model is downloaded once from the UI and the engine loads lazily only when needed.
+- **Local LLM Triage**: Uses `ggml-org/vllm-d3-lite-GGUF` via `llama-server`, running fully on-device (CPU or NVIDIA GPU). The model is downloaded once from the UI; switching to the NVIDIA GPU downloads and installs the CUDA backend + runtime automatically. The engine loads lazily only when needed.
 - **Custom Classification Rules**: Edit your triage prompt in Markdown and re-score your inbox without restarting the application.
-- **Two-way Gmail Mirror**: Latest 400 inbox messages mirrored to a local SQLite store; read/unread states stay in sync both ways.
-- **Privacy & Security**: OAuth tokens stored in your system keyring, emails sanitized server-side, and the reader renders HTML in a sandboxed iframe.
+- **Transparent Confidence**: Each label shows the local model's probability for that choice. Low confidence is informational and never downgrades urgent mail.
+- **Gmail Mirror**: A new account offers to sync its newest 150 inbox messages once; after that every sync only fetches mail newer than the last synced message. The local SQLite store is not row-capped, and the feed is paginated at 50 mails per page. Read/unread states are pulled in from Gmail; archived or deleted mail is pruned. InboxZen only reads — it never changes your mailbox.
+- **Privacy & Security**: OAuth tokens stored in your system keyring, emails sanitized server-side, and the reader renders HTML in a sandboxed iframe with a CSP that blocks remote images and fonts.
 - **Multi-Account Filtering**: Connect multiple Gmail accounts and switch or filter emails per account with one click.
 - **Light & Dark Themes**: Fully adaptive interface with synchronized color palettes across both HTML and plain-text email views.
 - **Fast Desktop UI**: Built with FastAPI, Jinja2, HTMX, and pure modern CSS.
@@ -48,7 +49,7 @@ InboxZen is a local, private email triage client and reader powered by an on-dev
    - Enable the **Gmail API** under *APIs & Services > Library*.
    - Configure the **OAuth Consent Screen** (User Type: *External*, Scope: `https://www.googleapis.com/auth/gmail.readonly`, add your email to *Test Users*).
    - Under *Credentials > Create Credentials > OAuth client ID*, select **Desktop app**.
-   - Download the JSON credentials and save it as `credentials.json` in the root of the project:
+   - Download the JSON credentials and either upload it from **Settings > Accounts > Setup guide**, or save it as `credentials.json` in the root of the project:
      ```bash
      cp credentials.json.example credentials.json
      # Replace placeholders with your actual Google Cloud client details
@@ -64,11 +65,11 @@ Start the dev server using:
 python run.py
 ```
 
-The app will start on `http://127.0.0.1:8000`.
+Open the URL printed by the launcher (it includes a per-run session token; requests without it are rejected). The server itself listens on `http://127.0.0.1:8000`.
 
 - Connect your Gmail account from **Settings > Accounts** (browser OAuth flow).
-- The local LLM is **lazy**: it launches only when new mail arrives, you press Rescan, or you press Scan on an open email. **Engine pane > Start** loads it manually.
-- **Sync mails** mirrors your inbox, **Rescan** re-scores the newest 100 emails with a live progress bar, **Scan** re-scores the open email.
+- The local LLM is **lazy**: it launches only when new mail arrives, you press Rescan, or you press Scan on an open email. **Settings > Engine** can download or retry the model.
+- **Sync mails** mirrors your inbox with a live progress bar and a **Cancel** button, **Rescan** re-scores all stored emails with a live progress bar and **Cancel**, **Scan** re-scores the open email.
 
 ---
 
@@ -79,7 +80,8 @@ The app will start on `http://127.0.0.1:8000`.
 cd dist/InboxZen && ./install.sh
 ```
 
-This bundles everything with PyInstaller and installs to `~/.local/lib/inboxzen` with a launcher in your app menu (`inboxzen`).
+This bundles everything with PyInstaller and installs to `~/.local/lib/inboxzen` with a launcher in your app menu (`inboxzen`). If `bin/llama-server` is missing, the build script downloads the pinned `llama.cpp` release and its CPU libraries before packaging.
+
 
 ---
 

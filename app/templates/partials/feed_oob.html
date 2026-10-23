@@ -1,0 +1,29 @@
+{# The OOB fragment cluster shared by every feed-bearing response: chrome
+   mirrors/counts, sidebar chips, tabs/toggle states, list, and the reader
+   (only re-rendered when the open email changed or vanished — matches the
+   stale-iframe behavior the old JS listener provided). #}
+{% import "partials/macros.html" as m %}
+{% import "partials/email_feed.html" as ef %}
+<div style="display:none;">
+  {{ m.mirrors_oob(current_tab, unread_only, selected_account) }}
+  {{ m.tabs_seg(current_tab, counts, oob=True) }}
+  {{ m.unread_toggle(unread_only, oob=True) }}
+  {{ m.acct_list(accounts, selected_account, oob=True) }}
+  {{ m.counts_oob(counts) }}
+  {{ m.pager_nav(pager, oob=True) }}
+  <input type="hidden" name="sig" id="feed-sig" value="{{ feed_sig }}" hx-swap-oob="true">
+</div>
+<div class="list" id="list" hx-swap-oob="innerHTML">{{ ef.feed_items(emails, open_email, unread_only) }}</div>
+{% if render_reader %}
+<main class="pane" id="reader" hx-swap-oob="innerHTML">
+  {% if open_email %}
+    {% with email = open_email %}{% include "partials/email_view.html" %}{% endwith %}
+  {% else %}
+    <div class="none" style="padding: 100px 20px;">
+      <p style="font: 400 24px var(--serif); color: var(--ink2); margin-bottom: 6px;">No emails in this view</p>
+      <p style="font-size: 12.5px; color: var(--ink3);">Try switching account filter or tabs</p>
+    </div>
+  {% endif %}
+</main>
+{% endif %}
+{% if events_msg %}{{ m.toast_msg(events_msg) }}{% endif %}

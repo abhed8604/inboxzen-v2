@@ -16,6 +16,34 @@ if [ ! -f "$PYINSTALLER" ]; then
     $PYTHON -m pip install pywebview pyinstaller
 fi
 
+LLAMA_RELEASE="${LLAMA_RELEASE:-$(sed -n 's/^LLAMA_RELEASE = "\(.*\)"/\1/p' app/config.py)}"
+if [ -z "$LLAMA_RELEASE" ]; then
+    echo "Could not determine the llama.cpp release."
+    exit 1
+fi
+
+mkdir -p bin
+if [ ! -x bin/llama-server ]; then
+    echo "Fetching llama-server ${LLAMA_RELEASE}..."
+    LLAMA_ARCHIVE="llama-${LLAMA_RELEASE}-bin-ubuntu-x64.tar.gz"
+    LLAMA_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_RELEASE}/${LLAMA_ARCHIVE}"
+    TMP_DIR="$(mktemp -d)"
+    trap 'rm -rf "$TMP_DIR"' EXIT
+    curl -fL --retry 3 --connect-timeout 30 -o "$TMP_DIR/$LLAMA_ARCHIVE" "$LLAMA_URL"
+    tar -xzf "$TMP_DIR/$LLAMA_ARCHIVE" -C "$TMP_DIR"
+    LLAMA_SOURCE="$(find "$TMP_DIR" -maxdepth 3 -type f -name llama-server -print -quit)"
+    if [ -z "$LLAMA_SOURCE" ]; then
+        echo "llama-server was not found in the downloaded release."
+        exit 1
+    fi
+    LLAMA_DIR="$(dirname "$LLAMA_SOURCE")"
+    cp -a "$LLAMA_DIR/llama-server" bin/
+    for lib in "$LLAMA_DIR"/lib*.so*; do
+        [ -e "$lib" ] && cp -a "$lib" bin/
+    done
+    chmod +x bin/llama-server
+fi
+
 # Clean previous build artifacts
 rm -rf build dist
 

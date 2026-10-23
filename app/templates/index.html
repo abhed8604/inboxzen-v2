@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% import "partials/macros.html" as m %}
+{% import "partials/email_feed.html" as ef %}
 <div class="app">
   <!-- Column 1: Navigation Sidebar -->
   {% include "partials/sidebar.html" %}
@@ -9,69 +11,46 @@
   <section class="pane">
     <form id="filter-form" style="display:none;">
       <input type="hidden" name="tab" id="filter-tab" value="{{ current_tab }}">
-      <input type="hidden" name="q" id="filter-query" value="{{ search_query }}">
       <input type="hidden" name="unread" id="filter-unread" value="{{ '1' if unread_only else '0' }}">
       <input type="hidden" name="account" id="filter-account" value="{{ selected_account or '' }}">
+      <input type="hidden" name="sig" id="feed-sig" value="{{ feed_sig }}">
     </form>
 
     <div class="lhead">
-      <label class="search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/>
           <path d="m20 20-3.5-3.5"/>
         </svg>
-        <input id="q" placeholder="Search emails…" value="{{ search_query }}"
-               hx-get="/emails"
+        <input id="q" name="q" type="search" placeholder="Search all emails…" value="{{ search_query }}"
+               aria-label="Search all emails"
+               autocomplete="off" spellcheck="false"
+               hx-get="/emails?tab=all&amp;unread=0&amp;account="
                hx-trigger="input changed delay:200ms"
-               hx-target="#list"
-               hx-include="#filter-form"
-               oninput="document.getElementById('filter-query').value = this.value;" />
-      </label>
+               hx-target="#swap-root"
+               hx-sync="this:replace"
+               hx-indicator=".search"
+               hx-include="#q, #reader" />
+        <button class="search-clear" id="search-clear" type="button"
+                aria-label="Clear search" title="Clear search"
+                {% if not search_query %}hidden{% endif %}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18"/>
+          </svg>
+        </button>
+      </div>
 
       <div class="row">
-        <div class="seg" id="tabs">
-          <!-- 1. Important (Default - includes very_important distinguishable inside) -->
-          <button class="{{ 'on' if current_tab == 'important' else '' }}"
-                  data-t="important"
-                  hx-get="/emails"
-                  hx-target="#list"
-                  hx-include="#filter-form"
-                  onclick="setFilterTab('important', this)">
-            Important <small id="count-important">{{ counts.important }}</small>
-          </button>
-
-          <!-- 2. Low Priority -->
-          <button class="{{ 'on' if current_tab == 'low_priority' else '' }}"
-                  data-t="low_priority"
-                  hx-get="/emails"
-                  hx-target="#list"
-                  hx-include="#filter-form"
-                  onclick="setFilterTab('low_priority', this)">
-            Low Priority <small id="count-low">{{ counts.low_priority }}</small>
-          </button>
-
-          <!-- 3. All -->
-          <button class="{{ 'on' if current_tab == 'all' else '' }}"
-                  data-t="all"
-                  hx-get="/emails"
-                  hx-target="#list"
-                  hx-include="#filter-form"
-                  onclick="setFilterTab('all', this)">
-            All <small id="count-all">{{ counts.all }}</small>
-          </button>
-        </div>
-
-        <button class="sw" id="unread" type="button" onclick="toggleUnreadFilter()">
-          <span>Unread</span>
-          <i class="tg {{ 'on' if unread_only else '' }}" id="unread-tg"></i>
-        </button>
+        {{ m.tabs_seg(current_tab, counts) }}
+        {{ m.unread_toggle(unread_only) }}
       </div>
     </div>
 
     <!-- Scrollable Email Feed -->
     <div class="list" id="list">
-      {% include "partials/email_feed.html" %}
+      {{ ef.feed_items(emails, selected_email, unread_only) }}
     </div>
+    {{ m.pager_nav(pager) }}
   </section>
 
   <!-- Column 3: Right In-App Reader -->
@@ -82,8 +61,15 @@
   </main>
 </div>
 
-<!-- Settings Modal -->
-{% include "partials/settings_modal.html" %}
+<div id="swap-root" style="display:none;"></div>
+<div id="modal-slot" style="display:none;"></div>
+<div id="feed-poll" style="display:none;" hx-get="/feed/poll" hx-trigger="every 15s" hx-include="#filter-form, #q, #reader-open, #page-state"></div>
+
+<!-- Settings Modal (rendered on demand into this slot) -->
+<div id="settings-root"></div>
+
+<!-- First-sync prompt (shown after connecting a new account) -->
+<div id="first-sync-root"></div>
 
 <!-- Onboarding Modal -->
 {% include "partials/onboarding_modal.html" %}
@@ -93,4 +79,9 @@
 
 <!-- Rescan progress HUD -->
 {% include "partials/rescan_progress.html" %}
+
+<!-- Sync progress HUD -->
+{% with sync_live = sync_active | default(false) %}
+{% include "partials/sync_progress.html" %}
+{% endwith %}
 {% endblock %}

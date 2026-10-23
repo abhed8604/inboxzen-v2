@@ -15,6 +15,8 @@ datas = [
 cuda_patterns = ("libcublas", "libggml-cuda", "libcudart", "libnvjitlink")
 binaries = []
 bin_dir = project_dir / "bin"
+if not (bin_dir / "llama-server").exists():
+    raise SystemExit("bin/llama-server is missing; run ./build_linux.sh to fetch it")
 if bin_dir.exists():
     for f in bin_dir.iterdir():
         # Exclude GGUF models (downloaded on demand)
@@ -70,7 +72,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "scipy", "numpy", "PIL", "pillow", "pytest"],
+    excludes=["tkinter", "matplotlib", "scipy", "numpy", "PIL", "pillow"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

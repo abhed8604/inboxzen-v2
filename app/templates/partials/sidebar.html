@@ -29,16 +29,18 @@
   </div>
 
   <nav>
-    <button class="nav {{ 'on' if current_tab in ['important', 'low_priority', 'all'] else '' }}" id="nav-inbox-btn" onclick="selectNavInbox()">
+    <button class="nav {{ 'on' if current_tab in ['important', 'low_priority', 'all'] else '' }}" id="nav-inbox-btn"
+            hx-get="/emails?tab=important" hx-params="not tab"
+            hx-target="#swap-root" hx-include="#filter-form, #q">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 13h5l1.5 3h5L16 13h5"/>
         <path d="M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>
       </svg>
       Inbox
-      <em id="sidebar-total-count">{{ counts.all }}</em>
+      <em id="sidebar-total-count">{{ counts.unread }}</em>
     </button>
 
-    <button class="nav act" hx-post="/sync" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); showToast('Syncing in background — feed updates automatically...')">
+    <button class="nav act" hx-post="/sync" hx-target="#swap-root" hx-include="#filter-form, #q, #reader-open, #page-state" hx-indicator="this">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 11a8 8 0 0 0-14.5-4L4 9"/>
         <path d="M4 4v5h5"/>
@@ -48,7 +50,7 @@
       Sync mails
     </button>
 
-    <button class="nav act" hx-post="/rescan" hx-target="#list" hx-include="#filter-form" onclick="spinButton(this); startRescanPolling(); showToast('Re-scoring the newest 100 mails…')">
+    <button class="nav act" hx-post="/rescan" hx-target="#swap-root" hx-include="#filter-form, #q, #reader-open, #page-state" hx-indicator="this">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
         <path d="M3 3v5h5"/>
@@ -56,7 +58,7 @@
       Rescan
     </button>
 
-    <button class="nav" onclick="openSettingsModal('rules')">
+    <button class="nav" hx-get="/fragments/settings?pane=rules" hx-target="#settings-root" hx-swap="innerHTML">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/>
         <circle cx="15" cy="7" r="2"/>
@@ -70,27 +72,11 @@
     <div class="acct-head">
       <span class="cap">Accounts</span>
     </div>
-    <div class="acct-list" id="sidebar-acct-list">
-      {% for acc in accounts %}
-      <div class="acct-chip {{ 'active' if selected_account == acc.account else '' }}" 
-           data-account="{{ acc.account }}"
-           onclick="toggleAccountFilter(this.dataset.account, this)"
-           title="Filter emails received by {{ acc.account }}">
-        <i class="dot"></i>
-        <span class="acct-text">{{ acc.account }}</span>
-      </div>
-      {% else %}
-      <button class="acct-empty" onclick="openSettingsModal('accounts')" title="Connect your first Gmail account in Settings">
-        No accounts yet — add in Settings
-      </button>
-      {% endfor %}
-    </div>
+    {% import "partials/macros.html" as m %}
+    {{ m.acct_list(accounts, selected_account) }}
   </div>
 
   <div class="foot">
-    <div class="engine-indicator" onclick="openSettingsModal('model')" title="Engine status: {{ 'Online in VRAM' if server_ok else 'Paused' }}">
-      <i class="dot" id="vram-dot" style="{{ 'background: var(--ok);' if server_ok else 'background: var(--ink3);' }}"></i>
-      <span class="engine-name" id="vram-footer-label">vllm-d3-lite</span>
-    </div>
+    {% include "partials/engine_footer.html" %}
   </div>
 </aside>

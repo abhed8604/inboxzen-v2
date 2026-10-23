@@ -1,0 +1,17 @@
+<div class="scrim on prompt-scrim" id="first-sync-scrim">
+  <div class="prompt-modal" role="dialog" aria-modal="true" aria-labelledby="first-sync-title">
+    <h2 id="first-sync-title">Sync your inbox?</h2>
+    <p>
+      We can fetch the newest <strong>{{ first_sync_cap }} mails</strong> from
+      <strong>{{ first_sync_account }}</strong> now so triage can start immediately.
+      After this first sync, only new mail is fetched.
+    </p>
+    <div class="prompt-actions">
+      <button class="btn-secondary" type="button" onclick="closeFirstSyncPrompt()">Later</button>
+      <button class="btn" type="button"
+              hx-post="/sync?only_account={{ first_sync_account | urlencode }}"
+              hx-target="#swap-root"
+              hx-include="#filter-form, #q, #reader-open, #page-state">Sync {{ first_sync_cap }} now</button>
+    </div>
+  </div>
+</div>

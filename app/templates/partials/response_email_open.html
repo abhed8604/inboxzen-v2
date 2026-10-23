@@ -1,0 +1,11 @@
+{# Response for opening an email (`#reader` innerHTML target). The new item
+   re-renders OOB (read/.on state), the previously open item loses its .on,
+   and both are popped out of the response. #}
+{% import "partials/email_feed.html" as ef %}
+{% import "partials/macros.html" as m %}
+{% with email = email %}{% include "partials/email_view.html" %}{% endwith %}
+<div style="display:none;">
+  {% if prev_email %}{{ ef.feed_items([prev_email], None, False, oob=True) }}{% endif %}
+  {{ ef.feed_items([item_row], item_row, False, oob=True) }}
+  {{ m.counts_oob(counts) }}
+</div>

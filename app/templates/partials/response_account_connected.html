@@ -1,0 +1,10 @@
+{# Account connected: update the open Accounts pane, toast, and offer the
+   one-time first sync (150 newest mails) in a modal. #}
+{% import "partials/macros.html" as m %}
+{% with pane_oob = True %}{% include pane_template %}{% endwith %}
+<div style="display:none;">{{ m.toast_msg(msg) }}</div>
+{% if first_sync_account %}
+<div id="first-sync-root" hx-swap-oob="true">
+  {% include "partials/initial_sync_prompt.html" %}
+</div>
+{% endif %}

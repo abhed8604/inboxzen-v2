@@ -1,0 +1,6 @@
+{# Generic "pane + toast" reply: includes `pane_template` (marked OOB so it
+   lands in the open modal) and shows `msg` as a toast. One template for every
+   pane reply instead of one file per pane. #}
+{% import "partials/macros.html" as m %}
+{% with pane_oob = True %}{% include pane_template %}{% endwith %}
+<div style="display:none;">{{ m.toast_msg(msg) }}</div>

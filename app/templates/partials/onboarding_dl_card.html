@@ -1,0 +1,28 @@
+{# Live download progress card (CUDA runtime / classification model).
+   Context (all provided by the onboarding endpoints):
+     dl_visible bool          — show the card
+     dl_poll    str | None    — "0.8s"/"0.5s" while the server-side job runs
+     dl_advance str | None    — delay before switching to the mail step
+     dl_title / dl_sub / dl_percent / dl_bar / dl_stats / dl_status
+#}
+<div id="onboarding-download-section" style="{{ '' if dl_visible | default(false) else 'display: none;' }}" class="onboarding-download-card"
+     {% if dl_poll %}hx-get="/fragments/onboarding/progress" hx-trigger="every {{ dl_poll }}" hx-swap="outerHTML"{% endif %}>
+  <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+    <div>
+      <strong id="onboarding-dl-title" style="font-size: 13.5px; color: var(--ink);">{{ dl_title | default('Downloading classification model') }}</strong>
+      <div id="onboarding-dl-sub" style="font-size: 11.5px; color: var(--ink2);">{{ dl_sub | default('ggml-org/vllm-d3-lite-GGUF (Q8_0)') }}</div>
+    </div>
+    <span id="onboarding-dl-percent" style="font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent);">{{ dl_percent | default(0) }}%</span>
+  </div>
+  <div class="progress-container">
+    <div class="progress-bar" id="onboarding-dl-bar" style="width: {{ dl_bar | default(0) }}%;"></div>
+  </div>
+  <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink3); margin-top: 6px;">
+    <span id="onboarding-dl-stats">{{ dl_stats | default('') }}</span>
+    <span id="onboarding-dl-status">{{ dl_status | default('Connecting to repository…') }}</span>
+  </div>
+  {% if dl_advance %}
+  <div hx-get="/fragments/onboarding/step/mail" hx-trigger="load delay:{{ dl_advance }}"
+       hx-target="#ob-main" hx-swap="innerHTML"></div>
+  {% endif %}
+</div>

@@ -1,0 +1,22 @@
+{# Sync HUD — polls the progress endpoint while a sync is live; Cancel asks
+   the backend to stop at its next checkpoint. #}
+{% set live = sync_live | default(false) %}
+<div class="rescan-hud" id="sync-hud"
+     {% if sync_oob | default(false) %}hx-swap-oob="true"{% endif %}
+     {% if live %}
+     hx-get="/fragments/sync-progress" hx-trigger="every 1s" hx-swap="outerHTML"
+     hx-include="#filter-form, #q, #reader-open, #page-state"
+     {% else %}
+     hidden
+     {% endif %}>
+  <div class="rescan-info">
+    <span class="rescan-dot"></span>
+    <span id="sync-label">{{ sync_label | default('Sync') }}</span>
+    <span class="rescan-count">{{ sync_count | default('') }}</span>
+    {% if live and sync_cancel | default(false) %}
+    <button class="rescan-cancel" hx-post="/sync/cancel" hx-target="#swap-root"
+            hx-include="#filter-form, #q">Cancel</button>
+    {% endif %}
+  </div>
+  <div class="rescan-track"><div class="rescan-fill" style="width: {{ sync_fill | default(0) }}%;"></div></div>
+</div>

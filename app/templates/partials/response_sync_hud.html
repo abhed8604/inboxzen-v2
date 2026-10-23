@@ -1,0 +1,12 @@
+{# Sync HUD poll response / the POST /sync reply.
+   Everything is OOB — the main response is empty. #}
+{% import "partials/macros.html" as m %}
+{% import "partials/email_feed.html" as ef %}
+{% set sync_oob = True %}
+{% include "partials/sync_progress.html" %}
+{% if feed_refresh %}
+<div class="list" id="list" hx-swap-oob="innerHTML">{{ ef.feed_items(emails, open_email, unread_only) }}</div>
+{{ m.pager_nav(pager, oob=True) }}
+{% endif %}
+{% if close_first_sync %}<div id="first-sync-root" hx-swap-oob="true"></div>{% endif %}
+{% if msg %}{{ m.toast_msg(msg) }}{% endif %}

@@ -1,0 +1,11 @@
+{# Settings side-nav switch: OOB side buttons + OOB #mmain (close btn + pane). #}
+{% import "partials/macros.html" as m %}
+{{ m.settings_side(active_pane, oob=True) }}
+<div id="mmain" class="mmain" hx-swap-oob="true">
+  <button class="x" onclick="closeSettingsModal()" aria-label="Close settings">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <path d="M6 6l12 12M18 6 6 18"/>
+    </svg>
+  </button>
+  {% include "partials/_settings_pane_dispatch.html" %}
+</div>

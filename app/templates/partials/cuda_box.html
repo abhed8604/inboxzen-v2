@@ -1,0 +1,45 @@
+{# CUDA install row inside the settings Engine pane. Self-polling while a
+   download is in flight; terminal states disable/complete the button like
+   the old JS poller did. `state`: idle | downloading | extracting | ready | error #}
+{% set state = cuda_state | default('idle') %}
+{% set live = state in ['downloading', 'extracting'] %}
+<div id="settings-cuda-box" class="cuda-row"
+     {% if pane_oob | default(false) %}hx-swap-oob="true"{% endif %}
+     style="{{ '' if (compute_device == 'gpu' and not (state in ['ready'] or cuda_installed)) else 'display: none;' }}"
+     {% if live %}hx-get="/fragments/cuda/progress" hx-trigger="every 1s" hx-swap="outerHTML" {% endif %}>
+  {% if pane_oob | default(false) and state == 'ready' %}
+  <span class="compute-badge ready" id="settings-gpu-badge" hx-swap-oob="true">Ready</span>
+  {% endif %}
+  <div class="cuda-row-top">
+    <div>
+      <strong>CUDA backend &amp; runtime</strong>
+      <small>One-time download for GPU mode (~760 MB; existing files are reused)</small>
+    </div>
+    <button type="button" class="btn" id="settings-cuda-install-btn"
+            {% if state == 'idle' or state == 'error' %}
+            hx-post="/fragments/cuda/install" hx-target="#modal-slot" hx-swap="innerHTML" hx-indicator="this"
+            {% else %}
+            disabled
+            {% endif %}>
+      {%- if state == 'ready' -%}Installed ✓
+      {%- elif state in ['downloading', 'extracting'] -%}Installing…
+      {%- elif state == 'error' -%}Retry Download
+      {%- else -%}Install{%- endif -%}
+    </button>
+  </div>
+  <div id="settings-cuda-progress" style="{{ 'display: block; margin-top: 12px;' if state != 'idle' else 'display: none; margin-top: 12px;' }}">
+    {% if state == 'error' %}
+    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+      <span id="settings-cuda-status-text" style="color: var(--vi, #b5532f);">Error: {{ cuda_error | default('Download failed') }}</span>
+    </div>
+    {% else %}
+    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+      <span id="settings-cuda-status-text" style="color: var(--ink2);">{{ cuda_status | default('Downloading…') }}</span>
+      <span id="settings-cuda-percent-text" style="color: var(--ink2); font-family: var(--mono);">{{ cuda_percent | default(0) }}%</span>
+    </div>
+    <div class="progress-container" style="margin-top: 0;">
+      <div class="progress-bar" id="settings-cuda-bar" style="width: {{ cuda_percent | default(0) }}%;"></div>
+    </div>
+    {% endif %}
+  </div>
+</div>
